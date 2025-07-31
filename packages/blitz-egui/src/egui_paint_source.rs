@@ -153,6 +153,10 @@ impl CustomPaintSource for EguiPaintSource {
         _scale: f64,
     ) -> Option<TextureHandle> {
         println!("DEBUG: EguiPaintSource::render called with dimensions: {}x{}", width, height);
+        println!("DEBUG: EguiPaintSource state: {:?}", match self.state {
+            EguiRendererState::Active { .. } => "Active",
+            EguiRendererState::Suspended => "Suspended",
+        });
         
         if width == 0 || height == 0 {
             println!("DEBUG: EguiPaintSource::render early return - invalid dimensions");

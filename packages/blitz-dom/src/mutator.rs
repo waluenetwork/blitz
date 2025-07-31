@@ -419,13 +419,29 @@ impl<'doc> DocumentMutator<'doc> {
 
     fn flush_eager_ops(&mut self) {
         let mut ops = mem::take(&mut self.eager_op_queue);
+        println!("DEBUG: flush_eager_ops called with {} operations", ops.len());
         for op in ops.drain(0..) {
             match op {
-                SpecialOp::LoadImage(node_id) => self.load_image(node_id),
-                SpecialOp::LoadStylesheet(node_id) => self.load_linked_stylesheet(node_id),
-                SpecialOp::UnloadStylesheet(node_id) => self.unload_stylesheet(node_id),
-                SpecialOp::LoadCustomPaintSource(node_id) => self.load_custom_paint_src(node_id),
-                SpecialOp::ProcessButtonInput(node_id) => self.process_button_input(node_id),
+                SpecialOp::LoadImage(node_id) => {
+                    println!("DEBUG: Processing LoadImage for node {}", node_id);
+                    self.load_image(node_id);
+                }
+                SpecialOp::LoadStylesheet(node_id) => {
+                    println!("DEBUG: Processing LoadStylesheet for node {}", node_id);
+                    self.load_linked_stylesheet(node_id);
+                }
+                SpecialOp::UnloadStylesheet(node_id) => {
+                    println!("DEBUG: Processing UnloadStylesheet for node {}", node_id);
+                    self.unload_stylesheet(node_id);
+                }
+                SpecialOp::LoadCustomPaintSource(node_id) => {
+                    println!("DEBUG: Processing LoadCustomPaintSource for node {}", node_id);
+                    self.load_custom_paint_src(node_id);
+                }
+                SpecialOp::ProcessButtonInput(node_id) => {
+                    println!("DEBUG: Processing ProcessButtonInput for node {}", node_id);
+                    self.process_button_input(node_id);
+                }
             }
         }
 
@@ -449,13 +465,16 @@ impl<'doc> DocumentMutator<'doc> {
 
             // Custom post-processing by element tag name
             let tag = element.name.local.as_ref();
+            println!("DEBUG: process_added_subtree processing node {} with tag: {}", node_id, tag);
             match tag {
                 "title" => self.title_node = Some(node_id),
                 "link" => self.eager_op_queue.push(SpecialOp::LoadStylesheet(node_id)),
                 "img" => self.eager_op_queue.push(SpecialOp::LoadImage(node_id)),
-                "canvas" => self
-                    .eager_op_queue
-                    .push(SpecialOp::LoadCustomPaintSource(node_id)),
+                "canvas" => {
+                    println!("DEBUG: Canvas element {} found, adding LoadCustomPaintSource to queue", node_id);
+                    self.eager_op_queue
+                        .push(SpecialOp::LoadCustomPaintSource(node_id));
+                }
                 "style" => {
                     self.style_nodes.insert(node_id);
                 }
@@ -604,7 +623,9 @@ impl<'doc> DocumentMutator<'doc> {
             println!("DEBUG: Node attributes: {:?}", element.attrs.iter().collect::<Vec<_>>());
         } else {
             println!("DEBUG: Node is not an element");
+            return;
         }
+        
         if let Some(raw_src) = node.attr(local_name!("src")) {
             println!("DEBUG: Canvas src attribute found: {}", raw_src);
             if let Ok(custom_paint_source_id) = raw_src.parse::<u64>() {
@@ -614,7 +635,15 @@ impl<'doc> DocumentMutator<'doc> {
                     custom_paint_source_id,
                 });
                 node.element_data_mut().unwrap().special_data = canvas_data;
-                println!("DEBUG: CanvasData created and assigned to element");
+                println!("DEBUG: CanvasData created and assigned to element node {}", target_id);
+                
+                if let Some(element) = node.element_data() {
+                    if element.canvas_data().is_some() {
+                        println!("DEBUG: Verification: CanvasData successfully assigned to node {}", target_id);
+                    } else {
+                        println!("DEBUG: ERROR: CanvasData assignment failed for node {}", target_id);
+                    }
+                }
             } else {
                 println!("DEBUG: Failed to parse src as u64: {}", raw_src);
             }

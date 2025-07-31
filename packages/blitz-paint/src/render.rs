@@ -141,6 +141,14 @@ impl BlitzDomPainter<'_> {
         if node.local_name() == "canvas" {
             println!("DEBUG: render_element called for canvas node ID: {}", node_id);
             println!("DEBUG: canvas node display style: {:?}", node.style.display);
+            if let Some(element_data) = node.element_data() {
+                println!("DEBUG: canvas element special_data: {:?}", element_data.special_data);
+                if element_data.canvas_data().is_some() {
+                    println!("DEBUG: canvas element HAS canvas_data");
+                } else {
+                    println!("DEBUG: canvas element has NO canvas_data");
+                }
+            }
         }
 
         // Early return if the element is hidden
@@ -604,6 +612,7 @@ impl ElementCx<'_> {
         println!("DEBUG: draw_canvas called for element with tag: {:?}", self.element.name.local);
         println!("DEBUG: draw_canvas element special_data type: {:?}", self.element.special_data);
         println!("DEBUG: draw_canvas node ID from context: {:?}", self.node.id);
+        
         if let Some(custom_paint_source) = self.element.canvas_data() {
             let width = self.frame.content_box.width() as u32;
             let height = self.frame.content_box.height() as u32;
@@ -613,12 +622,16 @@ impl ElementCx<'_> {
             println!("DEBUG: Canvas found with paint source ID: {}, dimensions: {}x{}", 
                      custom_paint_source.custom_paint_source_id, width, height);
 
+            if width == 0 || height == 0 {
+                println!("DEBUG: Canvas has zero dimensions, skipping render");
+                return;
+            }
+
             let transform = self.transform.then_translate(Vec2 { x, y });
 
             scene.fill(
                 Fill::NonZero,
                 transform,
-                // TODO: replace `Arc<dyn Any>` with `CustomPaint` in API?
                 Paint::Custom(Arc::new(CustomPaint {
                     source_id: custom_paint_source.custom_paint_source_id,
                     width,
@@ -631,6 +644,16 @@ impl ElementCx<'_> {
             println!("DEBUG: Paint::Custom created and submitted to scene");
         } else {
             println!("DEBUG: No canvas data found for element");
+            
+            if self.element.name.local.as_ref() == "canvas" {
+                println!("DEBUG: This is a canvas element but canvas_data is None");
+                if let Some(src) = self.element.attr(local_name!("src")) {
+                    println!("DEBUG: Canvas src attribute: {}", src);
+                    if let Ok(source_id) = src.parse::<u64>() {
+                        println!("DEBUG: Parsed source_id: {}, but CanvasData not found", source_id);
+                    }
+                }
+            }
         }
     }
 
