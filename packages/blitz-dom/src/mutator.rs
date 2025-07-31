@@ -203,6 +203,8 @@ impl DocumentMutator<'_> {
         let tag = &element.name.local;
         let attr = &name.local;
 
+        println!("DEBUG: set_attribute called - tag: {:?}, attr: {:?}, value: {}", tag, attr, value);
+
         if *attr == local_name!("value") {
             if let Some(input_data) = element.text_input_data_mut() {
                 // Update text input value
@@ -224,6 +226,7 @@ impl DocumentMutator<'_> {
         } else if (tag, attr) == tag_and_attr!("img", "src") {
             self.load_image(node_id);
         } else if (tag, attr) == tag_and_attr!("canvas", "src") {
+            println!("DEBUG: Canvas src attribute detected, calling load_custom_paint_src");
             self.load_custom_paint_src(node_id);
         }
     }
