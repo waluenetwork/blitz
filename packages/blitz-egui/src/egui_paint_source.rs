@@ -222,7 +222,7 @@ impl CustomPaintSource for EguiPaintSource {
         let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, pixels_per_point);
         println!("DEBUG: Tessellated into {} primitives", clipped_primitives.len());
 
-        let _encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("egui_encoder"),
         });
 
