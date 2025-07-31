@@ -260,6 +260,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         
         println!("Egui tessellation: {} shapes -> {} primitives", 
                  shapes_count, clipped_primitives.len());
+        
+        if shapes_count > 0 {
+            println!("Egui generated {} shapes for rendering", shapes_count);
+        } else {
+            println!("WARNING: No egui shapes generated - UI might not be visible");
+        }
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("egui_encoder"),
