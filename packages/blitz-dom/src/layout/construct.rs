@@ -607,7 +607,13 @@ fn collect_complex_layout_children(
             .display_style()
             .unwrap_or(Display::inline());
         let display_inside = child_display.inside();
-        let display_outside = if contains_block {
+        
+        let is_canvas_element = doc.nodes[child_id]
+            .element_data()
+            .map(|e| e.name.local.as_ref() == "canvas")
+            .unwrap_or(false);
+        
+        let display_outside = if contains_block || is_canvas_element {
             DisplayOutside::Block
         } else {
             child_display.outside()
