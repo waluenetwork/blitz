@@ -54,7 +54,7 @@ fn EguiDemo() -> Element {
     rsx! {
         canvas {
             class: "egui-canvas",
-            src: "{egui_id}"
+            "src": "{egui_id}"
         }
     }
 }
