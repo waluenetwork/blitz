@@ -183,11 +183,32 @@ pub(crate) fn collect_layout_children(
                 if matches!(display.inside(), DisplayInside::Contents) {
                     has_contents = true;
                 } else {
-                    match display.outside() {
+                    let is_canvas_element = child
+                        .element_data()
+                        .map(|e| e.name.local.as_ref() == "canvas")
+                        .unwrap_or(false);
+                    
+                    let effective_display_outside = if is_canvas_element {
+                        println!("DEBUG: Canvas element {} detected in all_block/all_inline detection, treating as block", child.id);
+                        DisplayOutside::Block
+                    } else {
+                        display.outside()
+                    };
+                    
+                    println!("DEBUG: Child {} (tag: {:?}) - display_outside: {:?}, effective_display_outside: {:?}", 
+                             child.id,
+                             child.element_data().map(|e| e.name.local.as_ref()),
+                             display.outside(),
+                             effective_display_outside);
+                    
+                    match effective_display_outside {
                         DisplayOutside::None => {}
                         DisplayOutside::Block
                         | DisplayOutside::TableCaption
-                        | DisplayOutside::InternalTable => all_inline = false,
+                        | DisplayOutside::InternalTable => {
+                            println!("DEBUG: Setting all_inline = false due to child {}", child.id);
+                            all_inline = false;
+                        }
                         DisplayOutside::Inline => {
                             all_block = false;
 
@@ -200,6 +221,9 @@ pub(crate) fn collect_layout_children(
                 }
             }
 
+            println!("DEBUG: Detection phase complete for node {} - all_block: {}, all_inline: {}, has_contents: {}", 
+                     container_node_id, all_block, all_inline, has_contents);
+            
             // TODO: fix display:contents
             if all_inline {
                 let (inline_layout, ilayout_children) = build_inline_layout(doc, container_node_id);
