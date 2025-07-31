@@ -1,0 +1,22 @@
+[package]
+name = "egui_demo"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[features]
+default = ["system_fonts", "gpu"]
+system_fonts = ["blitz-dom/system_fonts"]
+gpu = ["mini-dxn/gpu"]
+
+[dependencies]
+mini-dxn = { path = "../../packages/mini-dxn", default-features = false }
+blitz-egui = { path = "../../packages/blitz-egui", default-features = false }
+dioxus = { version = "=0.7.0-alpha.1", default-features = false, features = ["html", "hooks", "macro", "signals"] }
+blitz-dom = { path = "../../packages/blitz-dom", default-features = false }
+egui = { workspace = true }
+tracing-subscriber = "0.3"
+
+[[bin]]
+name = "egui_demo"
+path = "src/main.rs"

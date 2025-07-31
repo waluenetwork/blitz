@@ -19,6 +19,7 @@ members = [
   "wpt/runner",
   "examples/counter",
   "examples/wgpu_texture",
+  "examples/egui_demo",
   "examples/anyrender",
 ]
 exclude = ["sites"]
