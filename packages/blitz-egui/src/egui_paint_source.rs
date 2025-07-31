@@ -76,6 +76,47 @@ impl EguiPaintSource {
             view_formats: &[],
         })
     }
+
+    fn render_primitive(
+        &self,
+        device: &wgpu::Device,
+        render_pass: &mut wgpu::RenderPass,
+        primitive: &egui::ClippedPrimitive,
+        screen_width: u32,
+        screen_height: u32,
+    ) {
+        let egui::ClippedPrimitive { clip_rect, primitive } = primitive;
+        
+        println!("DEBUG: Rendering primitive with clip_rect: {:?}", clip_rect);
+        
+        match primitive {
+            egui::epaint::Primitive::Mesh(mesh) => {
+                println!("DEBUG: Rendering mesh with {} vertices, {} indices", 
+                         mesh.vertices.len(), mesh.indices.len());
+                
+                if mesh.vertices.is_empty() || mesh.indices.is_empty() {
+                    return;
+                }
+
+                self.render_simple_rect(device, render_pass, clip_rect, screen_width, screen_height);
+            }
+            egui::epaint::Primitive::Callback(_) => {
+                println!("DEBUG: Skipping callback primitive");
+            }
+        }
+    }
+
+    fn render_simple_rect(
+        &self,
+        _device: &wgpu::Device,
+        _render_pass: &mut wgpu::RenderPass,
+        clip_rect: &egui::Rect,
+        screen_width: u32,
+        screen_height: u32,
+    ) {
+        println!("DEBUG: Would render rect at {:?} on screen {}x{}", 
+                 clip_rect, screen_width, screen_height);
+    }
 }
 
 impl CustomPaintSource for EguiPaintSource {
@@ -170,21 +211,25 @@ impl CustomPaintSource for EguiPaintSource {
         let shapes_count = full_output.shapes.len();
         println!("DEBUG: Egui generated {} shapes", shapes_count);
 
+        let pixels_per_point = 1.0; // TODO: use actual scale
+        let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, pixels_per_point);
+        println!("DEBUG: Tessellated into {} primitives", clipped_primitives.len());
+
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("egui_encoder"),
         });
 
         {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("egui_render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &texture_ref.create_view(&wgpu::TextureViewDescriptor::default()),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: if shapes_count > 0 { 0.8 } else { 0.2 },
-                            g: 0.4,
-                            b: 0.6,
+                            r: 0.1,
+                            g: 0.1,
+                            b: 0.1,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -194,6 +239,10 @@ impl CustomPaintSource for EguiPaintSource {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+
+            for primitive in &clipped_primitives {
+                self.render_primitive(device, &mut render_pass, primitive, width, height);
+            }
         }
 
         queue.submit(Some(encoder.finish()));
