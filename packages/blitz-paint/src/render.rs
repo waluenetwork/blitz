@@ -137,6 +137,10 @@ impl BlitzDomPainter<'_> {
     /// to traverse back to the parent for its styles, or needing to pass down styles
     fn render_element(&self, scene: &mut impl PaintScene, node_id: usize, location: Point) {
         let node = &self.dom.as_ref().tree()[node_id];
+        
+        if node.local_name() == "canvas" {
+            println!("DEBUG: render_element called for canvas node ID: {}", node_id);
+        }
 
         // Early return if the element is hidden
         if matches!(node.style.display, taffy::Display::None) {
@@ -340,6 +344,7 @@ impl BlitzDomPainter<'_> {
         
         if element.name.local.as_ref() == "canvas" {
             println!("DEBUG: ElementCx created for canvas element with special_data: {:?}", element.special_data);
+            println!("DEBUG: ElementCx canvas node ID: {:?}", node.id);
         }
 
         ElementCx {
@@ -585,6 +590,7 @@ impl ElementCx<'_> {
     fn draw_canvas(&self, scene: &mut impl PaintScene) {
         println!("DEBUG: draw_canvas called for element with tag: {:?}", self.element.name.local);
         println!("DEBUG: draw_canvas element special_data type: {:?}", self.element.special_data);
+        println!("DEBUG: draw_canvas node ID from context: {:?}", self.node.id);
         if let Some(custom_paint_source) = self.element.canvas_data() {
             let width = self.frame.content_box.width() as u32;
             let height = self.frame.content_box.height() as u32;
