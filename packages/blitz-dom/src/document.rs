@@ -938,6 +938,12 @@ impl BaseDocument {
             // if doc.nodes[node_id].layout_children.borrow().is_none() {
             let mut layout_children = Vec::new();
             let mut anonymous_block: Option<usize> = None;
+            
+            let node = &doc.nodes[node_id];
+            println!("DEBUG: resolve_layout_children_recursive for node {} (tag: {:?})", 
+                     node_id, 
+                     node.element_data().map(|e| e.name.local.as_ref()));
+            
             collect_layout_children(doc, node_id, &mut layout_children, &mut anonymous_block);
 
             // Recurse into newly collected layout children
@@ -946,6 +952,7 @@ impl BaseDocument {
                 doc.nodes[child_id].layout_parent.set(Some(node_id));
             }
 
+            println!("DEBUG: Setting layout_children for node {}: {:?}", node_id, layout_children);
             *doc.nodes[node_id].layout_children.borrow_mut() = Some(layout_children.clone());
             *doc.nodes[node_id].paint_children.borrow_mut() = Some(layout_children);
             // }

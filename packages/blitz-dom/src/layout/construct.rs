@@ -55,6 +55,10 @@ pub(crate) fn collect_layout_children(
     layout_children: &mut Vec<usize>,
     anonymous_block_id: &mut Option<usize>,
 ) {
+    let container_node = &doc.nodes[container_node_id];
+    println!("DEBUG: collect_layout_children for container node {} (tag: {:?})", 
+             container_node_id, 
+             container_node.element_data().map(|e| e.name.local.as_ref()));
     // Reset construction flags
     // TODO: make incremental and only remove this if the element is no longer an inline root
     doc.nodes[container_node_id]
@@ -153,6 +157,10 @@ pub(crate) fn collect_layout_children(
             let children = std::mem::take(&mut doc.nodes[container_node_id].children);
 
             for child_id in children.iter().copied() {
+                let child_node = &doc.nodes[child_id];
+                println!("DEBUG: collect_layout_children recursing into child {} (tag: {:?})", 
+                         child_id, 
+                         child_node.element_data().map(|e| e.name.local.as_ref()));
                 collect_layout_children(doc, child_id, layout_children, anonymous_block_id)
             }
 
@@ -225,6 +233,7 @@ pub(crate) fn collect_layout_children(
             ) -> bool {
                 child_node_kind == NodeKind::Text || display_outside == DisplayOutside::Inline
             }
+            println!("DEBUG: collect_layout_children calling collect_complex_layout_children for node {}", container_node_id);
             collect_complex_layout_children(
                 doc,
                 container_node_id,
@@ -570,6 +579,10 @@ fn collect_complex_layout_children(
     hide_whitespace: bool,
     needs_wrap: impl Fn(NodeKind, DisplayOutside) -> bool,
 ) {
+    let container_node = &doc.nodes[container_node_id];
+    println!("DEBUG: collect_complex_layout_children for container node {} (tag: {:?})", 
+             container_node_id, 
+             container_node.element_data().map(|e| e.name.local.as_ref()));
     fn block_is_only_whitespace(doc: &BaseDocument, node_id: usize) -> bool {
         for child_id in doc.nodes[node_id].children.iter().copied() {
             let child = &doc.nodes[child_id];
@@ -605,20 +618,29 @@ fn collect_complex_layout_children(
             _ => false,
         };
 
+        println!("DEBUG: collect_complex_layout_children processing child {} (tag: {:?}, display_outside: {:?}, display_inside: {:?})", 
+                 child_id, 
+                 doc.nodes[child_id].element_data().map(|e| e.name.local.as_ref()),
+                 display_outside,
+                 display_inside);
+
         // Skip comment nodes. Note that we do *not* skip `Display::None` nodes as they may need to be hidden.
         // Taffy knows how to deal with `Display::None` children.
         //
         // Also hide all-whitespace flexbox children as these should be ignored
         if child_node_kind == NodeKind::Comment || (hide_whitespace && is_whitespace_node) {
+            println!("DEBUG: Skipping child {} - comment or whitespace", child_id);
             // return;
         }
         // Recurse into `Display::Contents` nodes
         else if display_inside == DisplayInside::Contents {
+            println!("DEBUG: Recursing into Contents child {}", child_id);
             collect_layout_children(doc, child_id, layout_children, anonymous_block_id)
         }
         // Push nodes that need wrapping into the current "anonymous block container".
         // If there is not an open one then we create one.
         else if needs_wrap(child_node_kind, display_outside) {
+            println!("DEBUG: Child {} needs wrapping", child_id);
             use style::selector_parser::PseudoElement;
 
             if anonymous_block_id.is_none() {
@@ -646,6 +668,7 @@ fn collect_complex_layout_children(
 
                 layout_children.push(node_id);
                 *anonymous_block_id = Some(node_id);
+                println!("DEBUG: Created anonymous block {} for child {}", node_id, child_id);
             }
 
             doc.nodes[anonymous_block_id.unwrap()]
@@ -654,6 +677,7 @@ fn collect_complex_layout_children(
         }
         // Else push the child directly (and close any open "anonymous block container")
         else {
+            println!("DEBUG: Adding child {} directly to layout_children", child_id);
             // If anonymous block node only contains whitespace then delete it
             if let Some(anon_id) = *anonymous_block_id {
                 if block_is_only_whitespace(doc, anon_id) {
