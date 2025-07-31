@@ -1,0 +1,16 @@
+[package]
+name = "blitz-egui"
+version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyrender_vello = { workspace = true }
+egui = { workspace = true }
+egui-winit = { workspace = true }
+wgpu = { workspace = true }
+winit = { workspace = true }
+bytemuck = { workspace = true }
