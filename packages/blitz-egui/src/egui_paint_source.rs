@@ -214,9 +214,9 @@ impl CustomPaintSource for EguiPaintSource {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.1,
-                            b: 0.1,
+                            r: if shapes_count > 0 { 0.8 } else { 0.2 },
+                            g: if shapes_count > 0 { 0.4 } else { 0.2 },
+                            b: if shapes_count > 0 { 0.6 } else { 0.2 },
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
