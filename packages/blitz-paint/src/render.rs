@@ -140,15 +140,22 @@ impl BlitzDomPainter<'_> {
         
         if node.local_name() == "canvas" {
             println!("DEBUG: render_element called for canvas node ID: {}", node_id);
+            println!("DEBUG: canvas node display style: {:?}", node.style.display);
         }
 
         // Early return if the element is hidden
         if matches!(node.style.display, taffy::Display::None) {
+            if node.local_name() == "canvas" {
+                println!("DEBUG: canvas node skipped - display is None");
+            }
             return;
         }
 
         // Only draw elements with a style
         if node.primary_styles().is_none() {
+            if node.local_name() == "canvas" {
+                println!("DEBUG: canvas node skipped - no primary styles");
+            }
             return;
         }
 
@@ -166,12 +173,18 @@ impl BlitzDomPainter<'_> {
             .visibility
             != StyloVisibility::Visible
         {
+            if node.local_name() == "canvas" {
+                println!("DEBUG: canvas node skipped - visibility not visible");
+            }
             return;
         }
 
         // We can't fully support opacity yet, but we can hide elements with opacity 0
         let opacity = node.primary_styles().unwrap().get_effects().opacity;
         if opacity == 0.0 {
+            if node.local_name() == "canvas" {
+                println!("DEBUG: canvas node skipped - opacity is 0");
+            }
             return;
         }
         let has_opacity = opacity < 1.0;
