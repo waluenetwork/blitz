@@ -19,12 +19,15 @@ pub fn use_wgpu<T: CustomPaintSource>(create_source: impl FnOnce() -> T) -> u64 
 
     let (_renderer, id) = use_hook_with_cleanup(
         || {
+            println!("DEBUG: use_wgpu hook creating CustomPaintSource");
             let renderer = consume_context::<DxnWindowRenderer>();
             let source = Box::new(create_source());
             let id = renderer.register_custom_paint_source(source);
+            println!("DEBUG: CustomPaintSource registered with ID: {}", id);
             (renderer, id)
         },
         |(renderer, id)| {
+            println!("DEBUG: use_wgpu cleanup, unregistering ID: {}", id);
             renderer.unregister_custom_paint_source(id);
         },
     );

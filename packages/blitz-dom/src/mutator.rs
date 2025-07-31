@@ -594,15 +594,23 @@ impl<'doc> DocumentMutator<'doc> {
     }
 
     fn load_custom_paint_src(&mut self, target_id: usize) {
+        println!("DEBUG: load_custom_paint_src called for node {}", target_id);
         let node = &mut self.doc.nodes[target_id];
         if let Some(raw_src) = node.attr(local_name!("src")) {
+            println!("DEBUG: Canvas src attribute found: {}", raw_src);
             if let Ok(custom_paint_source_id) = raw_src.parse::<u64>() {
+                println!("DEBUG: Parsed paint source ID: {}", custom_paint_source_id);
                 self.recompute_is_animating = true;
                 let canvas_data = SpecialElementData::Canvas(CanvasData {
                     custom_paint_source_id,
                 });
                 node.element_data_mut().unwrap().special_data = canvas_data;
+                println!("DEBUG: CanvasData created and assigned to element");
+            } else {
+                println!("DEBUG: Failed to parse src as u64: {}", raw_src);
             }
+        } else {
+            println!("DEBUG: No src attribute found for canvas element");
         }
     }
 

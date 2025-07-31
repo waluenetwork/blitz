@@ -579,11 +579,15 @@ impl ElementCx<'_> {
     }
 
     fn draw_canvas(&self, scene: &mut impl PaintScene) {
+        println!("DEBUG: draw_canvas called for element");
         if let Some(custom_paint_source) = self.element.canvas_data() {
             let width = self.frame.content_box.width() as u32;
             let height = self.frame.content_box.height() as u32;
             let x = self.frame.content_box.origin().x;
             let y = self.frame.content_box.origin().y;
+
+            println!("DEBUG: Canvas found with paint source ID: {}, dimensions: {}x{}", 
+                     custom_paint_source.custom_paint_source_id, width, height);
 
             let transform = self.transform.then_translate(Vec2 { x, y });
 
@@ -600,6 +604,9 @@ impl ElementCx<'_> {
                 None,
                 &Rect::from_origin_size((0.0, 0.0), (width as f64, height as f64)),
             );
+            println!("DEBUG: Paint::Custom created and submitted to scene");
+        } else {
+            println!("DEBUG: No canvas data found for element");
         }
     }
 

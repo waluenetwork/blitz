@@ -21,12 +21,16 @@ impl VelloScenePainter<'_> {
             scale,
         } = custom_paint;
 
-        // Render custom paint source
+        println!("DEBUG: render_custom_source called with source_id: {}, dimensions: {}x{}", 
+                 source_id, width, height);
+
         let source = self.custom_paint_sources.get_mut(&source_id)?;
+        println!("DEBUG: Found custom paint source for ID: {}", source_id);
+        
         let ctx = CustomPaintCtx::new(self.renderer);
         let texture_handle = source.render(ctx, width, height, scale)?;
+        println!("DEBUG: Custom paint source render completed successfully");
 
-        // Return dummy image
         Some(texture_handle.dummy_image())
     }
 }
