@@ -49,6 +49,8 @@ fn EguiDemo() -> Element {
             });
     });
 
+    println!("DEBUG: EguiDemo component rendering canvas with src={}", egui_id);
+    
     rsx! {
         canvas {
             class: "egui-canvas",
@@ -63,9 +65,13 @@ where
 {
     use blitz_egui::EguiPaintSource;
     
-    use_wgpu(move || {
+    println!("DEBUG: use_egui called, creating EguiPaintSource");
+    let id = use_wgpu(move || {
+        println!("DEBUG: use_egui creating EguiPaintSource::with_ui");
         EguiPaintSource::with_ui(ui_fn)
-    })
+    });
+    println!("DEBUG: use_egui completed, returned ID: {}", id);
+    id
 }
 
 const CSS: &str = r#"
