@@ -337,6 +337,10 @@ impl BlitzDomPainter<'_> {
         }
 
         let element = node.element_data().unwrap();
+        
+        if element.name.local.as_ref() == "canvas" {
+            println!("DEBUG: ElementCx created for canvas element with special_data: {:?}", element.special_data);
+        }
 
         ElementCx {
             context: self,
@@ -579,7 +583,8 @@ impl ElementCx<'_> {
     }
 
     fn draw_canvas(&self, scene: &mut impl PaintScene) {
-        println!("DEBUG: draw_canvas called for element");
+        println!("DEBUG: draw_canvas called for element with tag: {:?}", self.element.name.local);
+        println!("DEBUG: draw_canvas element special_data type: {:?}", self.element.special_data);
         if let Some(custom_paint_source) = self.element.canvas_data() {
             let width = self.frame.content_box.width() as u32;
             let height = self.frame.content_box.height() as u32;
