@@ -78,44 +78,31 @@ impl EguiPaintSource {
     }
 
     fn render_primitive(
-        &self,
-        device: &wgpu::Device,
-        render_pass: &mut wgpu::RenderPass,
+        _device: &wgpu::Device,
+        _render_pass: &mut wgpu::RenderPass,
         primitive: &egui::ClippedPrimitive,
-        screen_width: u32,
-        screen_height: u32,
+        _screen_width: u32,
+        _screen_height: u32,
     ) {
         let egui::ClippedPrimitive { clip_rect, primitive } = primitive;
         
-        println!("DEBUG: Rendering primitive with clip_rect: {:?}", clip_rect);
+        println!("DEBUG: Processing primitive with clip_rect: {:?}", clip_rect);
         
         match primitive {
             egui::epaint::Primitive::Mesh(mesh) => {
-                println!("DEBUG: Rendering mesh with {} vertices, {} indices", 
+                println!("DEBUG: Found mesh with {} vertices, {} indices", 
                          mesh.vertices.len(), mesh.indices.len());
                 
-                if mesh.vertices.is_empty() || mesh.indices.is_empty() {
-                    return;
+                if !mesh.vertices.is_empty() && !mesh.indices.is_empty() {
+                    println!("DEBUG: Mesh has content - would render {} triangles", mesh.indices.len() / 3);
+                    println!("DEBUG: First vertex: pos={:?}, color={:?}", 
+                             mesh.vertices[0].pos, mesh.vertices[0].color);
                 }
-
-                self.render_simple_rect(device, render_pass, clip_rect, screen_width, screen_height);
             }
             egui::epaint::Primitive::Callback(_) => {
                 println!("DEBUG: Skipping callback primitive");
             }
         }
-    }
-
-    fn render_simple_rect(
-        &self,
-        _device: &wgpu::Device,
-        _render_pass: &mut wgpu::RenderPass,
-        clip_rect: &egui::Rect,
-        screen_width: u32,
-        screen_height: u32,
-    ) {
-        println!("DEBUG: Would render rect at {:?} on screen {}x{}", 
-                 clip_rect, screen_width, screen_height);
     }
 }
 
@@ -241,7 +228,7 @@ impl CustomPaintSource for EguiPaintSource {
             });
 
             for primitive in &clipped_primitives {
-                self.render_primitive(device, &mut render_pass, primitive, width, height);
+                Self::render_primitive(device, &mut render_pass, primitive, width, height);
             }
         }
 
