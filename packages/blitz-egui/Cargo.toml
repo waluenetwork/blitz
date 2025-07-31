@@ -10,6 +10,7 @@ edition.workspace = true
 [dependencies]
 anyrender_vello = { workspace = true }
 egui = { workspace = true }
+egui-wgpu = "0.31.0"
 egui-winit = { workspace = true }
 wgpu = { workspace = true }
 winit = { workspace = true }

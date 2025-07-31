@@ -1,6 +1,7 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
 use egui::{Context, RawInput};
+use egui_wgpu;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use wgpu::Instance;
 
@@ -17,6 +18,7 @@ pub enum EguiRendererState {
     Active {
         device: wgpu::Device,
         queue: wgpu::Queue,
+        egui_renderer: egui_wgpu::Renderer,
         texture: Option<wgpu::Texture>,
         texture_handle: Option<TextureHandle>,
     },
@@ -78,67 +80,30 @@ impl EguiPaintSource {
         })
     }
 
-    fn render_primitive_to_cpu_buffer(
-        image_data: &mut [u8],
-        primitive: &egui::ClippedPrimitive,
-        width: u32,
-        height: u32,
-    ) {
-        let egui::ClippedPrimitive { clip_rect, primitive } = primitive;
-        
-        println!("DEBUG: Processing primitive with clip_rect: {:?}", clip_rect);
-        
-        match primitive {
-            egui::epaint::Primitive::Mesh(mesh) => {
-                println!("DEBUG: Found mesh with {} vertices, {} indices", 
-                         mesh.vertices.len(), mesh.indices.len());
-                
-                if !mesh.vertices.is_empty() && !mesh.indices.is_empty() {
-                    println!("DEBUG: Rendering {} triangles to CPU buffer", mesh.indices.len() / 3);
-                    
-                    for vertex in &mesh.vertices {
-                        let x = vertex.pos.x as i32;
-                        let y = vertex.pos.y as i32;
-                        let color = vertex.color;
-                        
-                        for dy in -2..=2 {
-                            for dx in -2..=2 {
-                                let px = x + dx;
-                                let py = y + dy;
-                                
-                                if px >= 0 && py >= 0 && px < width as i32 && py < height as i32 {
-                                    let idx = ((py as u32 * width + px as u32) * 4) as usize;
-                                    if idx + 3 < image_data.len() {
-                                        image_data[idx] = color.r();
-                                        image_data[idx + 1] = color.g();
-                                        image_data[idx + 2] = color.b();
-                                        image_data[idx + 3] = color.a();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            egui::epaint::Primitive::Callback(_) => {
-                println!("DEBUG: Skipping callback primitive");
-            }
-        }
-    }
+
 }
 
 impl CustomPaintSource for EguiPaintSource {
     fn resume(&mut self, _instance: &Instance, device_handle: &DeviceHandle) {
         println!("DEBUG: EguiPaintSource::resume called");
         
+        let egui_renderer = egui_wgpu::Renderer::new(
+            &device_handle.device,
+            wgpu::TextureFormat::Rgba8Unorm,
+            None,
+            1,
+            false,
+        );
+        
         self.state = EguiRendererState::Active {
             device: device_handle.device.clone(),
             queue: device_handle.queue.clone(),
+            egui_renderer,
             texture: None,
             texture_handle: None,
         };
         
-        println!("DEBUG: EguiPaintSource::resume completed");
+        println!("DEBUG: EguiPaintSource::resume completed with egui-wgpu renderer");
     }
 
     fn suspend(&mut self) {
@@ -169,6 +134,7 @@ impl CustomPaintSource for EguiPaintSource {
         let &mut EguiRendererState::Active {
             ref device,
             ref queue,
+            ref mut egui_renderer,
             ref mut texture,
             ref mut texture_handle,
         } = &mut self.state
@@ -177,7 +143,7 @@ impl CustomPaintSource for EguiPaintSource {
             return None;
         };
 
-        println!("DEBUG: EguiPaintSource::render - state is active, proceeding");
+        println!("DEBUG: EguiPaintSource::render - state is active, proceeding with WGPU renderer");
 
         if let Some(tex) = texture {
             if tex.width() != width || tex.height() != height {
@@ -227,43 +193,53 @@ impl CustomPaintSource for EguiPaintSource {
         let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, pixels_per_point);
         println!("DEBUG: Tessellated into {} primitives", clipped_primitives.len());
 
-        let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("egui_encoder"),
         });
 
-        let mut image_data = vec![0u8; (width * height * 4) as usize];
+        let view = texture_ref.create_view(&wgpu::TextureViewDescriptor::default());
         
-        let bg_color = if shapes_count > 0 { [200, 100, 150, 255] } else { [50, 50, 50, 255] };
-        for chunk in image_data.chunks_mut(4) {
-            chunk.copy_from_slice(&bg_color);
+        for (id, image_delta) in &full_output.textures_delta.set {
+            egui_renderer.update_texture(device, queue, *id, image_delta);
         }
-        
-        for primitive in &clipped_primitives {
-            Self::render_primitive_to_cpu_buffer(&mut image_data, primitive, width, height);
+
+        let screen_descriptor = egui_wgpu::ScreenDescriptor {
+            size_in_pixels: [width, height],
+            pixels_per_point: 1.0,
+        };
+
+        egui_renderer.update_buffers(device, queue, &mut encoder, &clipped_primitives, &screen_descriptor);
+
+        {
+            let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("egui_render_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.1,
+                            b: 0.1,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            egui_renderer.render(&mut render_pass.forget_lifetime(), &clipped_primitives, &screen_descriptor);
+        } // render_pass is dropped here, releasing the borrow on encoder
+
+        for id in &full_output.textures_delta.free {
+            egui_renderer.free_texture(id);
         }
-        
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: texture_ref,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &image_data,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(width * 4),
-                rows_per_image: Some(height),
-            },
-            wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-        );
 
         queue.submit(Some(encoder.finish()));
-        println!("DEBUG: EguiPaintSource::render completed successfully");
+        println!("DEBUG: EguiPaintSource::render completed successfully with WGPU");
 
         Some(handle)
     }
