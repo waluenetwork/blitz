@@ -198,7 +198,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         mut ctx: CustomPaintCtx<'_>,
         width: u32,
         height: u32,
-        scale: f64,
+        _scale: f64,
     ) -> Option<TextureHandle> {
         if width == 0 || height == 0 {
             return None;
@@ -263,6 +263,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         
         if shapes_count > 0 {
             println!("Egui generated {} shapes for rendering", shapes_count);
+            for (i, primitive) in clipped_primitives.iter().enumerate() {
+                match &primitive.primitive {
+                    egui::epaint::Primitive::Mesh(mesh) => {
+                        println!("  Primitive {}: Mesh with {} vertices, {} indices", 
+                                i, mesh.vertices.len(), mesh.indices.len());
+                    }
+                    _ => {
+                        println!("  Primitive {}: Non-mesh primitive", i);
+                    }
+                }
+            }
         } else {
             println!("WARNING: No egui shapes generated - UI might not be visible");
         }
