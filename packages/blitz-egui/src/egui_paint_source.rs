@@ -77,12 +77,11 @@ impl EguiPaintSource {
         })
     }
 
-    fn render_primitive(
-        _device: &wgpu::Device,
-        _render_pass: &mut wgpu::RenderPass,
+    fn render_primitive_to_cpu_buffer(
+        image_data: &mut [u8],
         primitive: &egui::ClippedPrimitive,
-        _screen_width: u32,
-        _screen_height: u32,
+        width: u32,
+        height: u32,
     ) {
         let egui::ClippedPrimitive { clip_rect, primitive } = primitive;
         
@@ -94,9 +93,30 @@ impl EguiPaintSource {
                          mesh.vertices.len(), mesh.indices.len());
                 
                 if !mesh.vertices.is_empty() && !mesh.indices.is_empty() {
-                    println!("DEBUG: Mesh has content - would render {} triangles", mesh.indices.len() / 3);
-                    println!("DEBUG: First vertex: pos={:?}, color={:?}", 
-                             mesh.vertices[0].pos, mesh.vertices[0].color);
+                    println!("DEBUG: Rendering {} triangles to CPU buffer", mesh.indices.len() / 3);
+                    
+                    for vertex in &mesh.vertices {
+                        let x = vertex.pos.x as i32;
+                        let y = vertex.pos.y as i32;
+                        let color = vertex.color;
+                        
+                        for dy in -2..=2 {
+                            for dx in -2..=2 {
+                                let px = x + dx;
+                                let py = y + dy;
+                                
+                                if px >= 0 && py >= 0 && px < width as i32 && py < height as i32 {
+                                    let idx = ((py as u32 * width + px as u32) * 4) as usize;
+                                    if idx + 3 < image_data.len() {
+                                        image_data[idx] = color.r();
+                                        image_data[idx + 1] = color.g();
+                                        image_data[idx + 2] = color.b();
+                                        image_data[idx + 3] = color.a();
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             egui::epaint::Primitive::Callback(_) => {
@@ -202,35 +222,40 @@ impl CustomPaintSource for EguiPaintSource {
         let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, pixels_per_point);
         println!("DEBUG: Tessellated into {} primitives", clipped_primitives.len());
 
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        let _encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("egui_encoder"),
         });
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("egui_render_pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &texture_ref.create_view(&wgpu::TextureViewDescriptor::default()),
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: if shapes_count > 0 { 0.8 } else { 0.2 },
-                            g: if shapes_count > 0 { 0.4 } else { 0.2 },
-                            b: if shapes_count > 0 { 0.6 } else { 0.2 },
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-
-            for primitive in &clipped_primitives {
-                Self::render_primitive(device, &mut render_pass, primitive, width, height);
-            }
+        let mut image_data = vec![0u8; (width * height * 4) as usize];
+        
+        let bg_color = if shapes_count > 0 { [200, 100, 150, 255] } else { [50, 50, 50, 255] };
+        for chunk in image_data.chunks_mut(4) {
+            chunk.copy_from_slice(&bg_color);
         }
+        
+        for primitive in &clipped_primitives {
+            Self::render_primitive_to_cpu_buffer(&mut image_data, primitive, width, height);
+        }
+        
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: texture_ref,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &image_data,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width * 4),
+                rows_per_image: Some(height),
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
 
         queue.submit(Some(encoder.finish()));
         println!("DEBUG: EguiPaintSource::render completed successfully");
