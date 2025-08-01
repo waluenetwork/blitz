@@ -42,6 +42,9 @@ fn EguiDemo() -> Element {
         
         egui::Window::new("Interactive Egui Demo")
             .default_size([400.0, 300.0])
+            .default_pos([200.0, 150.0])
+            .resizable(true)
+            .movable(true)
             .show(ctx, |ui| {
                 ui.heading("Hello from Interactive Egui!");
                 ui.separator();

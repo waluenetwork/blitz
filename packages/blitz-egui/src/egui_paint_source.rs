@@ -387,8 +387,6 @@ impl CustomPaintSource for EguiPaintSource {
             }
         }
 
-        println!("DEBUG: Running egui context with {} events and screen size: {}x{}", 
-                 raw_input.events.len(), width, height);
         
         let full_output = self.egui_ctx.run(raw_input, |ctx| {
             if let Some(ref ui_fn) = self.ui_fn {
@@ -403,16 +401,10 @@ impl CustomPaintSource for EguiPaintSource {
             }
         });
 
-        let shapes_count = full_output.shapes.len();
-        println!("DEBUG: Egui generated {} shapes", shapes_count);
-
-        if !full_output.viewport_output.is_empty() {
-            println!("DEBUG: Egui has viewport output changes");
-        }
-
         let pixels_per_point = 1.0; // TODO: use actual scale
+        let _shapes_count = full_output.shapes.len();
         let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, pixels_per_point);
-        println!("DEBUG: Tessellated into {} primitives", clipped_primitives.len());
+        
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("egui_encoder"),
@@ -460,7 +452,6 @@ impl CustomPaintSource for EguiPaintSource {
         }
 
         queue.submit(Some(encoder.finish()));
-        println!("DEBUG: EguiPaintSource::render completed successfully with WGPU");
 
         Some(handle)
     }
