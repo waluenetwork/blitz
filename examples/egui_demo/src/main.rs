@@ -150,5 +150,6 @@ const CSS: &str = r#"
 .egui-canvas {
     width: 100%;
     height: 100%;
+    display: block;
 }
 "#;
