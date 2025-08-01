@@ -106,6 +106,8 @@ fn EguiDemo() -> Element {
         canvas {
             class: "egui-canvas",
             tabindex: "0",
+            width: "800",
+            height: "600",
             "src": egui_id
         }
     }
