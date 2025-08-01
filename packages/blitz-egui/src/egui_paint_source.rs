@@ -340,8 +340,6 @@ impl CustomPaintSource for EguiPaintSource {
             return None;
         }
 
-        self.process_input();
-
         let &mut EguiRendererState::Active {
             ref device,
             ref queue,
@@ -382,7 +380,15 @@ impl CustomPaintSource for EguiPaintSource {
             egui::Vec2::new(width as f32, height as f32),
         ));
 
-        println!("DEBUG: Running egui context with screen size: {}x{}", width, height);
+        while let Ok(input) = self.rx.try_recv() {
+            raw_input.events.extend(input.events);
+            if input.screen_rect.is_some() {
+                raw_input.screen_rect = input.screen_rect;
+            }
+        }
+
+        println!("DEBUG: Running egui context with {} events and screen size: {}x{}", 
+                 raw_input.events.len(), width, height);
         
         let full_output = self.egui_ctx.run(raw_input, |ctx| {
             if let Some(ref ui_fn) = self.ui_fn {
@@ -399,6 +405,10 @@ impl CustomPaintSource for EguiPaintSource {
 
         let shapes_count = full_output.shapes.len();
         println!("DEBUG: Egui generated {} shapes", shapes_count);
+
+        if !full_output.viewport_output.is_empty() {
+            println!("DEBUG: Egui has viewport output changes");
+        }
 
         let pixels_per_point = 1.0; // TODO: use actual scale
         let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, pixels_per_point);
