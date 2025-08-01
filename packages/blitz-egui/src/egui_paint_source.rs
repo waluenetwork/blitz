@@ -44,6 +44,8 @@ pub struct EguiPaintSource {
     input_state: EguiInputState,
     context_id: u32,
     frame_count: u64,
+    canvas_width: u32,
+    canvas_height: u32,
 }
 
 
@@ -70,6 +72,8 @@ impl EguiPaintSource {
             input_state: EguiInputState::default(),
             context_id: 0,
             frame_count: 0,
+            canvas_width: 800,
+            canvas_height: 600,
         }
     }
 
@@ -87,6 +91,8 @@ impl EguiPaintSource {
             input_state: EguiInputState::default(),
             context_id: 0,
             frame_count: 0,
+            canvas_width: 800,
+            canvas_height: 600,
         }
     }
 
@@ -325,8 +331,8 @@ impl CustomPaintSource for EguiPaintSource {
     
     fn handle_event(&mut self, x: f32, y: f32, event_type: &str) -> bool {
 
-        let width = 400;
-        let height = 300;
+        let width = self.canvas_width;
+        let height = self.canvas_height;
         
         if let Some(raw_input) = self.convert_event_to_raw_input(x, y, event_type, width, height) {
             if let Err(_) = self.tx.send(raw_input) {
@@ -340,8 +346,8 @@ impl CustomPaintSource for EguiPaintSource {
     fn handle_key_event(&mut self, key_event: &dyn std::any::Any) -> bool {
 
         if let Some(key_event) = key_event.downcast_ref::<BlitzKeyEvent>() {
-            let width = 400;
-            let height = 300;
+            let width = self.canvas_width;
+            let height = self.canvas_height;
             
             if let Some(raw_input) = self.convert_key_event_to_raw_input(key_event, width, height) {
                 if let Err(_) = self.tx.send(raw_input) {
@@ -356,8 +362,8 @@ impl CustomPaintSource for EguiPaintSource {
     fn handle_ime_event(&mut self, ime_event: &dyn std::any::Any) -> bool {
 
         if let Some(ime_event) = ime_event.downcast_ref::<BlitzImeEvent>() {
-            let width = 400;
-            let height = 300;
+            let width = self.canvas_width;
+            let height = self.canvas_height;
             
             if let Some(raw_input) = self.convert_ime_event_to_raw_input(ime_event, width, height) {
                 if let Err(_) = self.tx.send(raw_input) {
@@ -402,6 +408,9 @@ impl CustomPaintSource for EguiPaintSource {
         if width == 0 || height == 0 {
             return None;
         }
+
+        self.canvas_width = width;
+        self.canvas_height = height;
 
         let &mut EguiRendererState::Active {
             ref device,
@@ -458,6 +467,7 @@ impl CustomPaintSource for EguiPaintSource {
                 egui::Window::new("Egui Demo")
                     .default_size([500.0, 400.0])
                     .default_pos([150.0, 100.0])
+                    .pivot(egui::Align2::LEFT_TOP)
                     .movable(true)
                     .show(ctx, |ui| {
                         ui.label("Hello from egui in Blitz!");
