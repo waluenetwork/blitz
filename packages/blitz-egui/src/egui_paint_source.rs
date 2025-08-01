@@ -288,7 +288,6 @@ impl CustomPaintSource for EguiPaintSource {
         false
     }
     fn resume(&mut self, _instance: &Instance, device_handle: &DeviceHandle) {
-        println!("DEBUG: EguiPaintSource::resume called");
         
         let egui_renderer = egui_wgpu::Renderer::new(
             &device_handle.device,
@@ -305,12 +304,9 @@ impl CustomPaintSource for EguiPaintSource {
             texture: None,
             texture_handle: None,
         };
-        
-        println!("DEBUG: EguiPaintSource::resume completed with egui-wgpu renderer");
     }
 
     fn suspend(&mut self) {
-        println!("DEBUG: EguiPaintSource::suspend called");
         self.state = EguiRendererState::Suspended;
     }
 
@@ -321,14 +317,8 @@ impl CustomPaintSource for EguiPaintSource {
         height: u32,
         _scale: f64,
     ) -> Option<TextureHandle> {
-        println!("DEBUG: EguiPaintSource::render called with dimensions: {}x{}", width, height);
-        println!("DEBUG: EguiPaintSource state: {:?}", match self.state {
-            EguiRendererState::Active { .. } => "Active",
-            EguiRendererState::Suspended => "Suspended",
-        });
         
         if width == 0 || height == 0 {
-            println!("DEBUG: EguiPaintSource::render early return - invalid dimensions");
             return None;
         }
 
@@ -340,11 +330,8 @@ impl CustomPaintSource for EguiPaintSource {
             ref mut texture_handle,
         } = &mut self.state
         else {
-            println!("DEBUG: EguiPaintSource::render - state not active");
             return None;
         };
-
-        println!("DEBUG: EguiPaintSource::render - state is active, proceeding with WGPU renderer");
 
         if let Some(tex) = texture {
             if tex.width() != width || tex.height() != height {
@@ -360,7 +347,6 @@ impl CustomPaintSource for EguiPaintSource {
             let handle = ctx.register_texture(new_texture.clone());
             *texture = Some(new_texture);
             *texture_handle = Some(handle);
-            println!("DEBUG: Created new texture {}x{}", width, height);
         }
 
         let texture_ref = texture.as_ref().unwrap();

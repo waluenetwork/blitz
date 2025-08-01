@@ -138,32 +138,14 @@ impl BlitzDomPainter<'_> {
     fn render_element(&self, scene: &mut impl PaintScene, node_id: usize, location: Point) {
         let node = &self.dom.as_ref().tree()[node_id];
         
-        if node.local_name() == "canvas" {
-            println!("DEBUG: render_element called for canvas node ID: {}", node_id);
-            println!("DEBUG: canvas node display style: {:?}", node.style.display);
-            if let Some(element_data) = node.element_data() {
-                println!("DEBUG: canvas element special_data: {:?}", element_data.special_data);
-                if element_data.canvas_data().is_some() {
-                    println!("DEBUG: canvas element HAS canvas_data");
-                } else {
-                    println!("DEBUG: canvas element has NO canvas_data");
-                }
-            }
-        }
 
         // Early return if the element is hidden
         if matches!(node.style.display, taffy::Display::None) {
-            if node.local_name() == "canvas" {
-                println!("DEBUG: canvas node skipped - display is None");
-            }
             return;
         }
 
         // Only draw elements with a style
         if node.primary_styles().is_none() {
-            if node.local_name() == "canvas" {
-                println!("DEBUG: canvas node skipped - no primary styles");
-            }
             return;
         }
 
@@ -181,18 +163,12 @@ impl BlitzDomPainter<'_> {
             .visibility
             != StyloVisibility::Visible
         {
-            if node.local_name() == "canvas" {
-                println!("DEBUG: canvas node skipped - visibility not visible");
-            }
             return;
         }
 
         // We can't fully support opacity yet, but we can hide elements with opacity 0
         let opacity = node.primary_styles().unwrap().get_effects().opacity;
         if opacity == 0.0 {
-            if node.local_name() == "canvas" {
-                println!("DEBUG: canvas node skipped - opacity is 0");
-            }
             return;
         }
         let has_opacity = opacity < 1.0;
@@ -362,11 +338,6 @@ impl BlitzDomPainter<'_> {
         }
 
         let element = node.element_data().unwrap();
-        
-        if element.name.local.as_ref() == "canvas" {
-            println!("DEBUG: ElementCx created for canvas element with special_data: {:?}", element.special_data);
-            println!("DEBUG: ElementCx canvas node ID: {:?}", node.id);
-        }
 
         ElementCx {
             context: self,
@@ -609,9 +580,6 @@ impl ElementCx<'_> {
     }
 
     fn draw_canvas(&self, scene: &mut impl PaintScene) {
-        println!("DEBUG: draw_canvas called for element with tag: {:?}", self.element.name.local);
-        println!("DEBUG: draw_canvas element special_data type: {:?}", self.element.special_data);
-        println!("DEBUG: draw_canvas node ID from context: {:?}", self.node.id);
         
         if let Some(custom_paint_source) = self.element.canvas_data() {
             let width = self.frame.content_box.width() as u32;
@@ -619,11 +587,10 @@ impl ElementCx<'_> {
             let x = self.frame.content_box.origin().x;
             let y = self.frame.content_box.origin().y;
 
-            println!("DEBUG: Canvas found with paint source ID: {}, dimensions: {}x{}", 
-                     custom_paint_source.custom_paint_source_id, width, height);
+            
 
             if width == 0 || height == 0 {
-                println!("DEBUG: Canvas has zero dimensions, skipping render");
+                
                 return;
             }
 
@@ -641,16 +608,16 @@ impl ElementCx<'_> {
                 None,
                 &Rect::from_origin_size((0.0, 0.0), (width as f64, height as f64)),
             );
-            println!("DEBUG: Paint::Custom created and submitted to scene");
+            
         } else {
-            println!("DEBUG: No canvas data found for element");
+            
             
             if self.element.name.local.as_ref() == "canvas" {
-                println!("DEBUG: This is a canvas element but canvas_data is None");
+                
                 if let Some(src) = self.element.attr(local_name!("src")) {
-                    println!("DEBUG: Canvas src attribute: {}", src);
+                    
                     if let Ok(source_id) = src.parse::<u64>() {
-                        println!("DEBUG: Parsed source_id: {}, but CanvasData not found", source_id);
+                        
                     }
                 }
             }

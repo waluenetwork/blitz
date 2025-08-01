@@ -156,7 +156,6 @@ pub(crate) fn handle_click<F: FnMut(DomEvent)>(
         }
 
         if let SpecialElementData::Canvas(_) = el.special_data {
-            println!("DEBUG: Canvas clicked, setting focus to node {}", node_id);
             doc.set_focus_to(node_id);
             return;
         }

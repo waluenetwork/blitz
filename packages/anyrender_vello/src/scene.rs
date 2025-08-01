@@ -21,29 +21,22 @@ impl VelloScenePainter<'_> {
             scale,
         } = custom_paint;
 
-        println!("DEBUG: render_custom_source called with source_id: {}, dimensions: {}x{}", 
-                 source_id, width, height);
-        println!("DEBUG: Available custom paint sources: {:?}", self.custom_paint_sources.keys().collect::<Vec<_>>());
 
         let source = self.custom_paint_sources.get_mut(&source_id);
         if source.is_none() {
-            println!("DEBUG: No custom paint source found for ID: {}", source_id);
             return None;
         }
         
         let source = source.unwrap();
-        println!("DEBUG: Found custom paint source for ID: {}", source_id);
         
         let ctx = CustomPaintCtx::new(self.renderer);
         let texture_handle = source.render(ctx, width, height, scale);
         
         match texture_handle {
             Some(handle) => {
-                println!("DEBUG: Custom paint source render completed successfully");
                 Some(handle.dummy_image())
             }
             None => {
-                println!("DEBUG: Custom paint source render returned None");
                 None
             }
         }
@@ -100,26 +93,19 @@ impl PaintScene for VelloScenePainter<'_> {
         let dummy_image: peniko::Image;
         let brush_ref = match paint {
             Paint::Solid(color) => {
-                println!("DEBUG: fill called with Solid color");
                 BrushRef::Solid(color)
             }
             Paint::Gradient(gradient) => {
-                println!("DEBUG: fill called with Gradient");
                 BrushRef::Gradient(gradient)
             }
             Paint::Image(image) => {
-                println!("DEBUG: fill called with Image");
                 BrushRef::Image(image)
             }
             Paint::Custom(custom_paint) => {
-                println!("DEBUG: fill called with Custom paint");
                 let Ok(custom_paint) = custom_paint.downcast::<CustomPaint>() else {
-                    println!("DEBUG: Failed to downcast custom paint");
                     return;
                 };
-                println!("DEBUG: Successfully downcast CustomPaint, calling render_custom_source");
                 let Some(image) = self.render_custom_source(*custom_paint) else {
-                    println!("DEBUG: render_custom_source returned None, skipping fill");
                     return;
                 };
                 dummy_image = image;
@@ -127,7 +113,6 @@ impl PaintScene for VelloScenePainter<'_> {
             }
         };
 
-        println!("DEBUG: Calling inner.fill with brush_ref");
         self.inner
             .fill(style, transform, brush_ref, brush_transform, shape);
     }
