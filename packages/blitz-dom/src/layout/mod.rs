@@ -244,7 +244,12 @@ impl LayoutPartialTree for BaseDocument {
                                 }
                                 ImageData::None => taffy::Size::ZERO,
                             },
-                            SpecialElementData::Canvas(_) => taffy::Size::ZERO,
+                            SpecialElementData::Canvas(_) => {
+                                taffy::Size {
+                                    width: 300.0,
+                                    height: 150.0,
+                                }
+                            },
                             SpecialElementData::None => taffy::Size::ZERO,
                             _ => unreachable!(),
                         };
