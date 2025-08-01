@@ -51,10 +51,13 @@ fn EguiDemo() -> Element {
                 
                 ui.label("Interactive Text Input:");
                 if let Ok(mut text) = text_input.try_lock() {
-                    if ui.text_edit_singleline(&mut *text).changed() {
-                        println!("Text changed to: {}", *text);
+                    let response = ui.text_edit_singleline(&mut *text);
+                    if response.changed() {
+                        println!("DEBUG: Text input changed to: '{}'", *text);
                     }
                     ui.label(format!("You typed: {}", *text));
+                } else {
+                    ui.label("Failed to lock text input mutex");
                 }
                 ui.separator();
                 
@@ -62,7 +65,9 @@ fn EguiDemo() -> Element {
                     if let (Ok(mut show), Ok(mut clicks)) = (show_content.try_lock(), button_clicks.try_lock()) {
                         *show = !*show;
                         *clicks += 1;
-                        println!("Button clicked! Show content: {}, Total clicks: {}", *show, *clicks);
+                        println!("DEBUG: Button clicked! Show content: {}, Total clicks: {}", *show, *clicks);
+                    } else {
+                        println!("DEBUG: Failed to lock button state mutexes");
                     }
                 }
                 
@@ -80,20 +85,30 @@ fn EguiDemo() -> Element {
                 ui.horizontal(|ui| {
                     ui.label("Interactive Slider:");
                     if let Ok(mut value) = slider_value.try_lock() {
-                        ui.add(egui::Slider::new(&mut *value, 0..=100));
+                        let response = ui.add(egui::Slider::new(&mut *value, 0..=100));
+                        if response.changed() {
+                            println!("DEBUG: Slider value changed to: {}", *value);
+                        }
+                    } else {
+                        ui.label("Failed to lock slider value mutex");
                     }
                 });
                 
                 ui.separator();
                 
                 if let Ok(mut checked) = checkbox_state.try_lock() {
-                    ui.checkbox(&mut *checked, "Interactive Checkbox");
+                    let response = ui.checkbox(&mut *checked, "Interactive Checkbox");
+                    if response.changed() {
+                        println!("DEBUG: Checkbox state changed to: {}", *checked);
+                    }
                     
                     if *checked {
                         ui.label("✓ Checkbox is checked!");
                     } else {
                         ui.label("☐ Checkbox is unchecked");
                     }
+                } else {
+                    ui.label("Failed to lock checkbox state mutex");
                 }
                 
                 if let Ok(clicks) = button_clicks.try_lock() {
