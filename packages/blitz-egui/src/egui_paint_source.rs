@@ -55,8 +55,10 @@ impl EguiPaintSource {
         self.tx.clone()
     }
 
+
     fn process_input(&mut self) {
-        while let Ok(_input) = self.rx.try_recv() {
+        while let Ok(input) = self.rx.try_recv() {
+            self.egui_ctx.begin_pass(input);
         }
     }
 
@@ -129,7 +131,9 @@ impl CustomPaintSource for EguiPaintSource {
             return None;
         }
 
-        self.process_input();
+        while let Ok(input) = self.rx.try_recv() {
+            self.egui_ctx.begin_pass(input);
+        }
 
         let &mut EguiRendererState::Active {
             ref device,

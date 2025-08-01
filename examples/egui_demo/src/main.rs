@@ -24,13 +24,13 @@ fn app() -> Element {
 #[component]
 fn EguiDemo() -> Element {
     let egui_id = use_egui(|ctx| {
-        egui::Window::new("Egui Demo Window")
+        egui::Window::new("Interactive Egui Demo")
             .default_size([400.0, 300.0])
             .show(ctx, |ui| {
-                ui.heading("Hello from Egui!");
+                ui.heading("Hello from Interactive Egui!");
                 ui.separator();
                 
-                ui.label("This is egui running inside Blitz!");
+                ui.label("This is egui running inside Blitz with basic interactivity!");
                 
                 if ui.button("Click me!").clicked() {
                     println!("Button clicked in egui!");
@@ -39,13 +39,21 @@ fn EguiDemo() -> Element {
                 ui.separator();
                 
                 ui.horizontal(|ui| {
-                    ui.label("Slider:");
-                    ui.add(egui::Slider::new(&mut 50, 0..=100));
+                    ui.label("Interactive Slider:");
+                    let mut slider_value = 50;
+                    ui.add(egui::Slider::new(&mut slider_value, 0..=100));
                 });
                 
-                ui.checkbox(&mut true, "Checkbox");
+                ui.separator();
                 
-                ui.text_edit_singleline(&mut String::from("Text input"));
+                let mut checkbox_state = false;
+                ui.checkbox(&mut checkbox_state, "Interactive Checkbox");
+                
+                ui.separator();
+                
+                ui.label("Interactive Text Input:");
+                let mut text_content = String::from("Type here...");
+                ui.text_edit_singleline(&mut text_content);
             });
     });
 
