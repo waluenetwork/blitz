@@ -25,46 +25,79 @@ fn app() -> Element {
 fn EguiDemo() -> Element {
 
     let egui_id = use_egui(move |ctx| {
-            egui::Window::new("Interactive Egui Demo")
-                .default_size([400.0, 300.0])
-                .show(ctx, |ui| {
-                    ui.heading("Hello from Interactive Egui!");
-                    ui.separator();
-                    
-                    ui.label("Interactive Text Input:");
-                    let mut current_text = String::from("Type here...");
-                    ui.text_edit_singleline(&mut current_text);
-                    ui.label(format!("You typed: {}", current_text));
-                    ui.separator();
-                    
-                    if ui.button("Toggle Content").clicked() {
-                        println!("Button clicked!");
+        use std::sync::Mutex;
+        use std::sync::OnceLock;
+        
+        static TEXT_INPUT: OnceLock<Mutex<String>> = OnceLock::new();
+        static SHOW_CONTENT: OnceLock<Mutex<bool>> = OnceLock::new();
+        static BUTTON_CLICKS: OnceLock<Mutex<i32>> = OnceLock::new();
+        static SLIDER_VALUE: OnceLock<Mutex<i32>> = OnceLock::new();
+        static CHECKBOX_STATE: OnceLock<Mutex<bool>> = OnceLock::new();
+        
+        let text_input = TEXT_INPUT.get_or_init(|| Mutex::new(String::new()));
+        let show_content = SHOW_CONTENT.get_or_init(|| Mutex::new(true));
+        let button_clicks = BUTTON_CLICKS.get_or_init(|| Mutex::new(0));
+        let slider_value = SLIDER_VALUE.get_or_init(|| Mutex::new(50));
+        let checkbox_state = CHECKBOX_STATE.get_or_init(|| Mutex::new(false));
+        
+        egui::Window::new("Interactive Egui Demo")
+            .default_size([400.0, 300.0])
+            .show(ctx, |ui| {
+                ui.heading("Hello from Interactive Egui!");
+                ui.separator();
+                
+                ui.label("Interactive Text Input:");
+                if let Ok(mut text) = text_input.try_lock() {
+                    if ui.text_edit_singleline(&mut *text).changed() {
+                        println!("Text changed to: {}", *text);
                     }
+                    ui.label(format!("You typed: {}", *text));
+                }
+                ui.separator();
+                
+                if ui.button("Toggle Content").clicked() {
+                    if let (Ok(mut show), Ok(mut clicks)) = (show_content.try_lock(), button_clicks.try_lock()) {
+                        *show = !*show;
+                        *clicks += 1;
+                        println!("Button clicked! Show content: {}, Total clicks: {}", *show, *clicks);
+                    }
+                }
+                
+                if let Ok(show) = show_content.try_lock() {
+                    if *show {
+                        ui.label("🎉 This content is visible!");
+                        ui.label("Click the button above to hide me.");
+                    } else {
+                        ui.label("Content is hidden. Click the button to show it!");
+                    }
+                }
+                
+                ui.separator();
+                
+                ui.horizontal(|ui| {
+                    ui.label("Interactive Slider:");
+                    if let Ok(mut value) = slider_value.try_lock() {
+                        ui.add(egui::Slider::new(&mut *value, 0..=100));
+                    }
+                });
+                
+                ui.separator();
+                
+                if let Ok(mut checked) = checkbox_state.try_lock() {
+                    ui.checkbox(&mut *checked, "Interactive Checkbox");
                     
-                    ui.label("🎉 This content is visible!");
-                    ui.label("Click the button above to interact.");
-                    
-                    ui.separator();
-                    
-                    ui.horizontal(|ui| {
-                        ui.label("Interactive Slider:");
-                        let mut slider_value = 50;
-                        ui.add(egui::Slider::new(&mut slider_value, 0..=100));
-                    });
-                    
-                    ui.separator();
-                    
-                    let mut checkbox_state = false;
-                    ui.checkbox(&mut checkbox_state, "Interactive Checkbox");
-                    
-                    if checkbox_state {
+                    if *checked {
                         ui.label("✓ Checkbox is checked!");
                     } else {
                         ui.label("☐ Checkbox is unchecked");
                     }
-                    
-                    ui.label("Interactive egui demo ready for testing!");
-                });
+                }
+                
+                if let Ok(clicks) = button_clicks.try_lock() {
+                    ui.label(format!("Button clicked {} times", *clicks));
+                }
+                ui.label("Interactive egui demo ready for testing!");
+            });
     });
 
     println!("DEBUG: EguiDemo component rendering canvas with src={}", egui_id);
@@ -72,6 +105,7 @@ fn EguiDemo() -> Element {
     rsx! {
         canvas {
             class: "egui-canvas",
+            tabindex: "0",
             "src": egui_id
         }
     }
