@@ -249,73 +249,41 @@ impl CustomPaintSource for EguiPaintSource {
         let width = 400;
         let height = 300;
         
-        println!("DEBUG: handle_event called with type: '{}' at ({}, {})", event_type, x, y);
-        
         if let Some(raw_input) = self.convert_event_to_raw_input(x, y, event_type, width, height) {
-            println!("DEBUG: Converted to {} egui events", raw_input.events.len());
-            for (i, event) in raw_input.events.iter().enumerate() {
-                println!("DEBUG: Event {}: {:?}", i, event);
-            }
             if let Err(_) = self.tx.send(raw_input) {
-                println!("DEBUG: Failed to send events to channel");
                 return false;
             }
-            println!("DEBUG: Successfully sent {} event to egui", event_type);
             return true;
-        } else {
-            println!("DEBUG: Failed to convert {} event to RawInput", event_type);
         }
         false
     }
     
     fn handle_key_event(&mut self, key_event: &dyn std::any::Any) -> bool {
         if let Some(key_event) = key_event.downcast_ref::<BlitzKeyEvent>() {
-            println!("DEBUG: handle_key_event called with key: {:?}", key_event.key);
             let width = 400;
             let height = 300;
             
             if let Some(raw_input) = self.convert_key_event_to_raw_input(key_event, width, height) {
-                println!("DEBUG: Converted key event to {} egui events", raw_input.events.len());
-                for (i, event) in raw_input.events.iter().enumerate() {
-                    println!("DEBUG: Key Event {}: {:?}", i, event);
-                }
                 if let Err(_) = self.tx.send(raw_input) {
-                    println!("DEBUG: Failed to send key events to channel");
                     return false;
                 }
-                println!("DEBUG: Successfully sent key event to egui");
                 return true;
-            } else {
-                println!("DEBUG: Failed to convert key event to RawInput");
             }
-        } else {
-            println!("DEBUG: Key event downcast failed");
         }
         false
     }
     
     fn handle_ime_event(&mut self, ime_event: &dyn std::any::Any) -> bool {
         if let Some(ime_event) = ime_event.downcast_ref::<BlitzImeEvent>() {
-            println!("DEBUG: handle_ime_event called with: {:?}", ime_event);
             let width = 400;
             let height = 300;
             
             if let Some(raw_input) = self.convert_ime_event_to_raw_input(ime_event, width, height) {
-                println!("DEBUG: Converted IME event to {} egui events", raw_input.events.len());
-                for (i, event) in raw_input.events.iter().enumerate() {
-                    println!("DEBUG: IME Event {}: {:?}", i, event);
-                }
                 if let Err(_) = self.tx.send(raw_input) {
-                    println!("DEBUG: Failed to send IME events to channel");
                     return false;
                 }
-                println!("DEBUG: Successfully sent IME event to egui");
                 return true;
-            } else {
-                println!("DEBUG: Failed to convert IME event to RawInput");
             }
-        } else {
-            println!("DEBUG: IME event downcast failed");
         }
         false
     }
@@ -404,26 +372,12 @@ impl CustomPaintSource for EguiPaintSource {
             egui::Vec2::new(width as f32, height as f32),
         ));
 
-        let mut events_processed = 0;
-        let mut total_events = 0;
         while let Ok(input) = self.rx.try_recv() {
-            println!("DEBUG: Received input batch with {} events", input.events.len());
-            for (i, event) in input.events.iter().enumerate() {
-                println!("DEBUG: Batch Event {}: {:?}", i, event);
-            }
             raw_input.events.extend(input.events.clone());
-            total_events += input.events.len();
             if input.screen_rect.is_some() {
                 raw_input.screen_rect = input.screen_rect;
             }
-            events_processed += 1;
         }
-        
-        if events_processed > 0 {
-            println!("DEBUG: Processed {} input batches, total {} events for egui", events_processed, total_events);
-        }
-
-        println!("DEBUG: Running egui context with {} events and screen size: {}x{}", raw_input.events.len(), width, height);
         let full_output = self.egui_ctx.run(raw_input, |ctx| {
             if let Some(ref ui_fn) = self.ui_fn {
                 ui_fn(ctx);
@@ -437,15 +391,6 @@ impl CustomPaintSource for EguiPaintSource {
             }
         });
 
-        println!("DEBUG: Egui full_output analysis:");
-        println!("  - shapes: {}", full_output.shapes.len());
-        println!("  - pixels_per_point: {}", full_output.pixels_per_point);
-        println!("  - platform_output events: {}", full_output.platform_output.events.len());
-        println!("  - viewport_output len: {}", full_output.viewport_output.len());
-        
-        for (i, event) in full_output.platform_output.events.iter().enumerate() {
-            println!("  - platform event {}: {:?}", i, event);
-        }
 
         let pixels_per_point = 1.0; // TODO: use actual scale
         let _shapes_count = full_output.shapes.len();
