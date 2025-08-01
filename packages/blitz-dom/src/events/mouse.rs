@@ -155,6 +155,12 @@ pub(crate) fn handle_click<F: FnMut(DomEvent)>(
             return;
         }
 
+        if let SpecialElementData::Canvas(_) = el.special_data {
+            println!("DEBUG: Canvas clicked, setting focus to node {}", node_id);
+            doc.set_focus_to(node_id);
+            return;
+        }
+
         match el.name.local {
             local_name!("input") if el.attr(local_name!("type")) == Some("checkbox") => {
                 let is_checked = BaseDocument::toggle_checkbox(el);
