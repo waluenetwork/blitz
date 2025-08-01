@@ -385,7 +385,7 @@ impl CustomPaintSource for EguiPaintSource {
                 egui::Window::new("Egui Demo").show(ctx, |ui| {
                     ui.label("Hello from egui in Blitz!");
                     if ui.button("Click me").clicked() {
-                        println!("Button clicked in egui!");
+                        
                     }
                 });
             }

@@ -41,8 +41,8 @@ fn EguiDemo() -> Element {
         let checkbox_state = CHECKBOX_STATE.get_or_init(|| Mutex::new(false));
         
         egui::Window::new("Interactive Egui Demo")
-            .default_size([400.0, 300.0])
-            .default_pos([200.0, 150.0])
+            .default_size([500.0, 400.0])
+            .default_pos([150.0, 100.0])
             .resizable(true)
             .movable(true)
             .show(ctx, |ui| {
@@ -53,7 +53,7 @@ fn EguiDemo() -> Element {
                 if let Ok(mut text) = text_input.try_lock() {
                     let response = ui.text_edit_singleline(&mut *text);
                     if response.changed() {
-                        println!("DEBUG: Text input changed to: '{}'", *text);
+                        
                     }
                     ui.label(format!("You typed: {}", *text));
                 } else {
@@ -65,9 +65,9 @@ fn EguiDemo() -> Element {
                     if let (Ok(mut show), Ok(mut clicks)) = (show_content.try_lock(), button_clicks.try_lock()) {
                         *show = !*show;
                         *clicks += 1;
-                        println!("DEBUG: Button clicked! Show content: {}, Total clicks: {}", *show, *clicks);
+                        
                     } else {
-                        println!("DEBUG: Failed to lock button state mutexes");
+                        
                     }
                 }
                 
@@ -87,7 +87,7 @@ fn EguiDemo() -> Element {
                     if let Ok(mut value) = slider_value.try_lock() {
                         let response = ui.add(egui::Slider::new(&mut *value, 0..=100));
                         if response.changed() {
-                            println!("DEBUG: Slider value changed to: {}", *value);
+                            
                         }
                     } else {
                         ui.label("Failed to lock slider value mutex");
@@ -99,7 +99,7 @@ fn EguiDemo() -> Element {
                 if let Ok(mut checked) = checkbox_state.try_lock() {
                     let response = ui.checkbox(&mut *checked, "Interactive Checkbox");
                     if response.changed() {
-                        println!("DEBUG: Checkbox state changed to: {}", *checked);
+                        
                     }
                     
                     if *checked {
@@ -118,7 +118,6 @@ fn EguiDemo() -> Element {
             });
     });
 
-    println!("DEBUG: EguiDemo component rendering canvas with src={}", egui_id);
     
     rsx! {
         canvas {
@@ -137,12 +136,9 @@ where
 {
     use blitz_egui::EguiPaintSource;
     
-    println!("DEBUG: use_egui called, creating EguiPaintSource");
     let id = use_wgpu(move || {
-        println!("DEBUG: use_egui creating EguiPaintSource::with_ui");
         EguiPaintSource::with_ui(ui_fn)
     });
-    println!("DEBUG: use_egui completed, returned ID: {}", id);
     id
 }
 
