@@ -797,10 +797,12 @@ name = "blitz-egui"
 version = "0.1.0-rc.2"
 dependencies = [
  "anyrender_vello",
+ "blitz-traits",
  "bytemuck",
  "egui",
  "egui-wgpu",
  "egui-winit",
+ "keyboard-types",
  "wgpu 24.0.5",
  "winit",
 ]

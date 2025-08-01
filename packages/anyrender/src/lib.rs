@@ -50,6 +50,14 @@ pub trait WindowRenderer {
     fn forward_event_to_custom_paint_source(&mut self, _id: u64, _x: f32, _y: f32, _event_type: &str) -> bool {
         false
     }
+    
+    fn forward_key_event_to_custom_paint_source(&mut self, _id: u64, _key_event: &dyn std::any::Any) -> bool {
+        false
+    }
+    
+    fn forward_ime_event_to_custom_paint_source(&mut self, _id: u64, _ime_event: &dyn std::any::Any) -> bool {
+        false
+    }
 }
 
 /// Abstraction for rendering a scene to an image buffer

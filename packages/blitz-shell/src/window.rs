@@ -264,7 +264,22 @@ impl<Rend: WindowRenderer> View<Rend> {
 
             // Text / keyboard events
             WindowEvent::Ime(ime_event) => {
-                self.doc.handle_ui_event(UiEvent::Ime(winit_ime_to_blitz(ime_event)));
+                let ime_event = winit_ime_to_blitz(ime_event);
+                self.doc.handle_ui_event(UiEvent::Ime(ime_event.clone()));
+                
+                if let Some(focused_node_id) = self.doc.get_focussed_node_id() {
+                    if let Some(node) = self.doc.get_node(focused_node_id) {
+                        if let Some(element) = node.element_data() {
+                            if let SpecialElementData::Canvas(canvas_data) = &element.special_data {
+                                self.renderer.forward_ime_event_to_custom_paint_source(
+                                    canvas_data.custom_paint_source_id, 
+                                    &ime_event as &dyn std::any::Any
+                                );
+                            }
+                        }
+                    }
+                }
+                
                 self.request_redraw();
             },
             WindowEvent::ModifiersChanged(new_state) => {
@@ -317,7 +332,26 @@ impl<Rend: WindowRenderer> View<Rend> {
                     UiEvent::KeyUp(key_event_data)
                 };
 
-                self.doc.handle_ui_event(event);
+                self.doc.handle_ui_event(event.clone());
+                
+                if let Some(focused_node_id) = self.doc.get_focussed_node_id() {
+                    if let Some(node) = self.doc.get_node(focused_node_id) {
+                        if let Some(element) = node.element_data() {
+                            if let SpecialElementData::Canvas(canvas_data) = &element.special_data {
+                                match &event {
+                                    UiEvent::KeyDown(key_event) | UiEvent::KeyUp(key_event) => {
+                                        self.renderer.forward_key_event_to_custom_paint_source(
+                                            canvas_data.custom_paint_source_id, 
+                                            key_event as &dyn std::any::Any
+                                        );
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 self.request_redraw();
             }
 

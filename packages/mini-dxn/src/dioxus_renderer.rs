@@ -123,4 +123,22 @@ impl WindowRenderer for DxnWindowRenderer {
             false
         }
     }
+    
+    #[cfg(feature = "gpu")]
+    fn forward_key_event_to_custom_paint_source(&mut self, id: u64, key_event: &dyn std::any::Any) -> bool {
+        if let Some(mut paint_source) = self.get_custom_paint_source_mut(id) {
+            paint_source.handle_key_event(key_event)
+        } else {
+            false
+        }
+    }
+    
+    #[cfg(feature = "gpu")]
+    fn forward_ime_event_to_custom_paint_source(&mut self, id: u64, ime_event: &dyn std::any::Any) -> bool {
+        if let Some(mut paint_source) = self.get_custom_paint_source_mut(id) {
+            paint_source.handle_ime_event(ime_event)
+        } else {
+            false
+        }
+    }
 }

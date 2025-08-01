@@ -16,7 +16,15 @@ pub trait CustomPaintSource: 'static {
         scale: f64,
     ) -> Option<TextureHandle>;
     
-    fn handle_event(&mut self, x: f32, y: f32, event_type: &str) -> bool {
+    fn handle_event(&mut self, _x: f32, _y: f32, _event_type: &str) -> bool {
+        false
+    }
+    
+    fn handle_key_event(&mut self, _key_event: &dyn std::any::Any) -> bool {
+        false
+    }
+    
+    fn handle_ime_event(&mut self, _ime_event: &dyn std::any::Any) -> bool {
         false
     }
     

@@ -23,38 +23,48 @@ fn app() -> Element {
 
 #[component]
 fn EguiDemo() -> Element {
-    let egui_id = use_egui(|ctx| {
-        egui::Window::new("Interactive Egui Demo")
-            .default_size([400.0, 300.0])
-            .show(ctx, |ui| {
-                ui.heading("Hello from Interactive Egui!");
-                ui.separator();
-                
-                ui.label("This is egui running inside Blitz with basic interactivity!");
-                
-                if ui.button("Click me!").clicked() {
-                    println!("Button clicked in egui!");
-                }
-                
-                ui.separator();
-                
-                ui.horizontal(|ui| {
-                    ui.label("Interactive Slider:");
-                    let mut slider_value = 50;
-                    ui.add(egui::Slider::new(&mut slider_value, 0..=100));
+
+    let egui_id = use_egui(move |ctx| {
+            egui::Window::new("Interactive Egui Demo")
+                .default_size([400.0, 300.0])
+                .show(ctx, |ui| {
+                    ui.heading("Hello from Interactive Egui!");
+                    ui.separator();
+                    
+                    ui.label("Interactive Text Input:");
+                    let mut current_text = String::from("Type here...");
+                    ui.text_edit_singleline(&mut current_text);
+                    ui.label(format!("You typed: {}", current_text));
+                    ui.separator();
+                    
+                    if ui.button("Toggle Content").clicked() {
+                        println!("Button clicked!");
+                    }
+                    
+                    ui.label("🎉 This content is visible!");
+                    ui.label("Click the button above to interact.");
+                    
+                    ui.separator();
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Interactive Slider:");
+                        let mut slider_value = 50;
+                        ui.add(egui::Slider::new(&mut slider_value, 0..=100));
+                    });
+                    
+                    ui.separator();
+                    
+                    let mut checkbox_state = false;
+                    ui.checkbox(&mut checkbox_state, "Interactive Checkbox");
+                    
+                    if checkbox_state {
+                        ui.label("✓ Checkbox is checked!");
+                    } else {
+                        ui.label("☐ Checkbox is unchecked");
+                    }
+                    
+                    ui.label("Interactive egui demo ready for testing!");
                 });
-                
-                ui.separator();
-                
-                let mut checkbox_state = false;
-                ui.checkbox(&mut checkbox_state, "Interactive Checkbox");
-                
-                ui.separator();
-                
-                ui.label("Interactive Text Input:");
-                let mut text_content = String::from("Type here...");
-                ui.text_edit_singleline(&mut text_content);
-            });
     });
 
     println!("DEBUG: EguiDemo component rendering canvas with src={}", egui_id);

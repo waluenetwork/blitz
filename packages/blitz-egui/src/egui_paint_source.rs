@@ -1,9 +1,11 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use egui::{Context, RawInput, Event, PointerButton};
+use egui::{Context, RawInput, Event, PointerButton, Key, Modifiers};
 use egui_wgpu;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use wgpu::Instance;
+use blitz_traits::events::{BlitzKeyEvent, BlitzImeEvent};
+use keyboard_types;
 
 pub struct EguiPaintSource {
     egui_ctx: Context,
@@ -109,6 +111,116 @@ impl EguiPaintSource {
 
         Some(raw_input)
     }
+    
+    fn convert_key_event_to_raw_input(&self, key_event: &BlitzKeyEvent, width: u32, height: u32) -> Option<RawInput> {
+        let mut raw_input = RawInput::default();
+        raw_input.screen_rect = Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(width as f32, height as f32),
+        ));
+
+        let egui_key = match key_event.key {
+            keyboard_types::Key::Character(ref s) => {
+                if let Some(ch) = s.chars().next() {
+                    match ch {
+                        'a'..='z' | 'A'..='Z' => {
+                            let key_char = ch.to_ascii_uppercase();
+                            match key_char {
+                                'A' => Key::A, 'B' => Key::B, 'C' => Key::C, 'D' => Key::D,
+                                'E' => Key::E, 'F' => Key::F, 'G' => Key::G, 'H' => Key::H,
+                                'I' => Key::I, 'J' => Key::J, 'K' => Key::K, 'L' => Key::L,
+                                'M' => Key::M, 'N' => Key::N, 'O' => Key::O, 'P' => Key::P,
+                                'Q' => Key::Q, 'R' => Key::R, 'S' => Key::S, 'T' => Key::T,
+                                'U' => Key::U, 'V' => Key::V, 'W' => Key::W, 'X' => Key::X,
+                                'Y' => Key::Y, 'Z' => Key::Z,
+                                _ => return None,
+                            }
+                        }
+                        '0'..='9' => {
+                            match ch {
+                                '0' => Key::Num0, '1' => Key::Num1, '2' => Key::Num2, '3' => Key::Num3,
+                                '4' => Key::Num4, '5' => Key::Num5, '6' => Key::Num6, '7' => Key::Num7,
+                                '8' => Key::Num8, '9' => Key::Num9,
+                                _ => return None,
+                            }
+                        }
+                        ' ' => Key::Space,
+                        _ => return None,
+                    }
+                } else {
+                    return None;
+                }
+            }
+            keyboard_types::Key::Enter => Key::Enter,
+            keyboard_types::Key::Tab => Key::Tab,
+            keyboard_types::Key::Backspace => Key::Backspace,
+            keyboard_types::Key::Delete => Key::Delete,
+            keyboard_types::Key::ArrowLeft => Key::ArrowLeft,
+            keyboard_types::Key::ArrowRight => Key::ArrowRight,
+            keyboard_types::Key::ArrowUp => Key::ArrowUp,
+            keyboard_types::Key::ArrowDown => Key::ArrowDown,
+            keyboard_types::Key::Home => Key::Home,
+            keyboard_types::Key::End => Key::End,
+            keyboard_types::Key::Escape => Key::Escape,
+            _ => return None,
+        };
+
+        let mut egui_modifiers = Modifiers::NONE;
+        if key_event.modifiers.contains(keyboard_types::Modifiers::CONTROL) {
+            egui_modifiers |= Modifiers::CTRL;
+        }
+        if key_event.modifiers.contains(keyboard_types::Modifiers::SHIFT) {
+            egui_modifiers |= Modifiers::SHIFT;
+        }
+        if key_event.modifiers.contains(keyboard_types::Modifiers::ALT) {
+            egui_modifiers |= Modifiers::ALT;
+        }
+        if key_event.modifiers.contains(keyboard_types::Modifiers::META) {
+            egui_modifiers |= Modifiers::MAC_CMD;
+        }
+
+        let pressed = key_event.state.is_pressed();
+        raw_input.events.push(Event::Key {
+            key: egui_key,
+            physical_key: None,
+            pressed,
+            repeat: key_event.is_auto_repeating,
+            modifiers: egui_modifiers,
+        });
+
+        if pressed {
+            if let Some(text) = &key_event.text {
+                if !text.is_empty() {
+                    raw_input.events.push(Event::Text(text.to_string()));
+                }
+            }
+        }
+
+        Some(raw_input)
+    }
+    
+    fn convert_ime_event_to_raw_input(&self, ime_event: &BlitzImeEvent, width: u32, height: u32) -> Option<RawInput> {
+        let mut raw_input = RawInput::default();
+        raw_input.screen_rect = Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(width as f32, height as f32),
+        ));
+
+        match ime_event {
+            BlitzImeEvent::Preedit(text, _) => {
+                raw_input.events.push(Event::Text(text.clone()));
+            }
+            BlitzImeEvent::Commit(text) => {
+                raw_input.events.push(Event::Text(text.clone()));
+            }
+            BlitzImeEvent::Enabled => {
+            }
+            BlitzImeEvent::Disabled => {
+            }
+        }
+
+        Some(raw_input)
+    }
 
     fn create_texture(device: &wgpu::Device, width: u32, height: u32) -> wgpu::Texture {
         device.create_texture(&wgpu::TextureDescriptor {
@@ -148,6 +260,38 @@ impl CustomPaintSource for EguiPaintSource {
             }
             println!("DEBUG: Sent {} event to egui at ({}, {})", event_type, x, y);
             return true;
+        }
+        false
+    }
+    
+    fn handle_key_event(&mut self, key_event: &dyn std::any::Any) -> bool {
+        if let Some(key_event) = key_event.downcast_ref::<BlitzKeyEvent>() {
+            let width = 400;
+            let height = 300;
+            
+            if let Some(raw_input) = self.convert_key_event_to_raw_input(key_event, width, height) {
+                if let Err(_) = self.tx.send(raw_input) {
+                    return false;
+                }
+                println!("DEBUG: Sent key event to egui: {:?}", key_event.key);
+                return true;
+            }
+        }
+        false
+    }
+    
+    fn handle_ime_event(&mut self, ime_event: &dyn std::any::Any) -> bool {
+        if let Some(ime_event) = ime_event.downcast_ref::<BlitzImeEvent>() {
+            let width = 400;
+            let height = 300;
+            
+            if let Some(raw_input) = self.convert_ime_event_to_raw_input(ime_event, width, height) {
+                if let Err(_) = self.tx.send(raw_input) {
+                    return false;
+                }
+                println!("DEBUG: Sent IME event to egui: {:?}", ime_event);
+                return true;
+            }
         }
         false
     }
