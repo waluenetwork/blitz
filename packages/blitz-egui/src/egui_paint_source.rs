@@ -7,12 +7,43 @@ use wgpu::Instance;
 use blitz_traits::events::{BlitzKeyEvent, BlitzImeEvent};
 use keyboard_types;
 
+#[derive(Debug, Clone, Default)]
+pub struct EguiInputState {
+    pub is_pointer_over_area: bool,
+    pub wants_pointer_input: bool,
+    pub is_using_pointer: bool,
+    pub wants_keyboard_input: bool,
+    pub is_popup_open: bool,
+    pub last_frame_wants_input: bool,
+}
+
+impl EguiInputState {
+    pub fn update_from_context(&mut self, ctx: &Context) {
+        self.is_pointer_over_area = ctx.is_pointer_over_area();
+        self.wants_pointer_input = ctx.wants_pointer_input();
+        self.wants_keyboard_input = ctx.wants_keyboard_input();
+        self.is_using_pointer = ctx.is_using_pointer();
+        self.last_frame_wants_input = self.wants_any_input();
+    }
+    
+    pub fn wants_any_input(&self) -> bool {
+        self.wants_pointer_input || self.wants_keyboard_input || self.is_pointer_over_area
+    }
+    
+    pub fn reset(&mut self) {
+        self.last_frame_wants_input = self.wants_any_input();
+    }
+}
+
 pub struct EguiPaintSource {
     egui_ctx: Context,
     state: EguiRendererState,
     tx: Sender<RawInput>,
     rx: Receiver<RawInput>,
     ui_fn: Option<Box<dyn Fn(&Context) + Send + 'static>>,
+    input_state: EguiInputState,
+    context_id: u32,
+    frame_count: u64,
 }
 
 
@@ -36,6 +67,9 @@ impl EguiPaintSource {
             tx,
             rx,
             ui_fn: None,
+            input_state: EguiInputState::default(),
+            context_id: 0,
+            frame_count: 0,
         }
     }
 
@@ -50,6 +84,9 @@ impl EguiPaintSource {
             tx,
             rx,
             ui_fn: Some(Box::new(ui_fn)),
+            input_state: EguiInputState::default(),
+            context_id: 0,
+            frame_count: 0,
         }
     }
 
@@ -58,19 +95,39 @@ impl EguiPaintSource {
     }
 
     pub fn wants_pointer_input(&self) -> bool {
-        self.egui_ctx.wants_pointer_input()
+        self.input_state.wants_pointer_input || self.egui_ctx.wants_pointer_input()
     }
 
     pub fn wants_keyboard_input(&self) -> bool {
-        self.egui_ctx.wants_keyboard_input()
+        self.input_state.wants_keyboard_input || self.egui_ctx.wants_keyboard_input()
     }
 
     pub fn is_pointer_over_area(&self) -> bool {
-        self.egui_ctx.is_pointer_over_area()
+        self.input_state.is_pointer_over_area || self.egui_ctx.is_pointer_over_area()
     }
 
     pub fn wants_any_input(&self) -> bool {
         self.wants_pointer_input() || self.wants_keyboard_input() || self.is_pointer_over_area()
+    }
+
+    pub fn is_using_pointer(&self) -> bool {
+        self.input_state.is_using_pointer || self.egui_ctx.is_using_pointer()
+    }
+
+    pub fn get_input_state(&self) -> &EguiInputState {
+        &self.input_state
+    }
+
+    pub fn get_context_id(&self) -> u32 {
+        self.context_id
+    }
+
+    pub fn get_frame_count(&self) -> u64 {
+        self.frame_count
+    }
+
+    pub fn set_context_id(&mut self, id: u32) {
+        self.context_id = id;
     }
 
     
@@ -257,14 +314,10 @@ impl EguiPaintSource {
 
 impl CustomPaintSource for EguiPaintSource {
     fn wants_events(&self) -> bool {
-        self.wants_any_input()
+        true
     }
     
     fn handle_event(&mut self, x: f32, y: f32, event_type: &str) -> bool {
-        // Check if egui wants pointer input before processing the event
-        if !self.wants_pointer_input() && !self.is_pointer_over_area() {
-            return false; // Let other systems handle the event
-        }
 
         let width = 400;
         let height = 300;
@@ -279,10 +332,6 @@ impl CustomPaintSource for EguiPaintSource {
     }
     
     fn handle_key_event(&mut self, key_event: &dyn std::any::Any) -> bool {
-        // Check if egui wants keyboard input before processing the event
-        if !self.wants_keyboard_input() {
-            return false; // Let other systems handle the event
-        }
 
         if let Some(key_event) = key_event.downcast_ref::<BlitzKeyEvent>() {
             let width = 400;
@@ -299,10 +348,6 @@ impl CustomPaintSource for EguiPaintSource {
     }
     
     fn handle_ime_event(&mut self, ime_event: &dyn std::any::Any) -> bool {
-        // Check if egui wants keyboard input before processing IME events
-        if !self.wants_keyboard_input() {
-            return false; // Let other systems handle the event
-        }
 
         if let Some(ime_event) = ime_event.downcast_ref::<BlitzImeEvent>() {
             let width = 400;
@@ -382,6 +427,9 @@ impl CustomPaintSource for EguiPaintSource {
         let texture_ref = texture.as_ref().unwrap();
         let handle = texture_handle.unwrap();
 
+        self.input_state.reset();
+        self.frame_count += 1;
+
         let mut raw_input = egui::RawInput::default();
         raw_input.screen_rect = Some(egui::Rect::from_min_size(
             egui::Pos2::ZERO,
@@ -394,18 +442,34 @@ impl CustomPaintSource for EguiPaintSource {
                 raw_input.screen_rect = input.screen_rect;
             }
         }
+
+        raw_input.time = Some(self.frame_count as f64 * 0.016);
+
         let full_output = self.egui_ctx.run(raw_input, |ctx| {
             if let Some(ref ui_fn) = self.ui_fn {
                 ui_fn(ctx);
             } else {
-                egui::Window::new("Egui Demo").show(ctx, |ui| {
-                    ui.label("Hello from egui in Blitz!");
-                    if ui.button("Click me").clicked() {
+                egui::Window::new("Egui Demo")
+                    .default_size([500.0, 400.0])
+                    .default_pos([150.0, 100.0])
+                    .movable(true)
+                    .show(ctx, |ui| {
+                        ui.label("Hello from egui in Blitz!");
+                        if ui.button("Click me").clicked() {
+                            
+                        }
                         
-                    }
-                });
+                        ui.separator();
+                        ui.label(format!("Frame: {}", self.frame_count));
+                        ui.label(format!("Context ID: {}", self.context_id));
+                        ui.label(format!("Wants pointer: {}", ctx.wants_pointer_input()));
+                        ui.label(format!("Wants keyboard: {}", ctx.wants_keyboard_input()));
+                        ui.label(format!("Pointer over area: {}", ctx.is_pointer_over_area()));
+                    });
             }
         });
+
+        self.input_state.update_from_context(&self.egui_ctx);
 
 
         let pixels_per_point = 1.0; // TODO: use actual scale
