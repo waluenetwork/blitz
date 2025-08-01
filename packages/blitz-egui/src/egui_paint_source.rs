@@ -437,6 +437,16 @@ impl CustomPaintSource for EguiPaintSource {
             }
         });
 
+        println!("DEBUG: Egui full_output analysis:");
+        println!("  - shapes: {}", full_output.shapes.len());
+        println!("  - pixels_per_point: {}", full_output.pixels_per_point);
+        println!("  - platform_output events: {}", full_output.platform_output.events.len());
+        println!("  - viewport_output len: {}", full_output.viewport_output.len());
+        
+        for (i, event) in full_output.platform_output.events.iter().enumerate() {
+            println!("  - platform event {}: {:?}", i, event);
+        }
+
         let pixels_per_point = 1.0; // TODO: use actual scale
         let _shapes_count = full_output.shapes.len();
         let clipped_primitives = self.egui_ctx.tessellate(full_output.shapes, pixels_per_point);
