@@ -57,6 +57,21 @@ impl EguiPaintSource {
         self.tx.clone()
     }
 
+    pub fn wants_pointer_input(&self) -> bool {
+        self.egui_ctx.wants_pointer_input()
+    }
+
+    pub fn wants_keyboard_input(&self) -> bool {
+        self.egui_ctx.wants_keyboard_input()
+    }
+
+    pub fn is_pointer_over_area(&self) -> bool {
+        self.egui_ctx.is_pointer_over_area()
+    }
+
+    pub fn wants_any_input(&self) -> bool {
+        self.wants_pointer_input() || self.wants_keyboard_input() || self.is_pointer_over_area()
+    }
 
     
     fn convert_event_to_raw_input(&self, x: f32, y: f32, event_type: &str, width: u32, height: u32) -> Option<RawInput> {
@@ -242,10 +257,15 @@ impl EguiPaintSource {
 
 impl CustomPaintSource for EguiPaintSource {
     fn wants_events(&self) -> bool {
-        true
+        self.wants_any_input()
     }
     
     fn handle_event(&mut self, x: f32, y: f32, event_type: &str) -> bool {
+        // Check if egui wants pointer input before processing the event
+        if !self.wants_pointer_input() && !self.is_pointer_over_area() {
+            return false; // Let other systems handle the event
+        }
+
         let width = 400;
         let height = 300;
         
@@ -259,6 +279,11 @@ impl CustomPaintSource for EguiPaintSource {
     }
     
     fn handle_key_event(&mut self, key_event: &dyn std::any::Any) -> bool {
+        // Check if egui wants keyboard input before processing the event
+        if !self.wants_keyboard_input() {
+            return false; // Let other systems handle the event
+        }
+
         if let Some(key_event) = key_event.downcast_ref::<BlitzKeyEvent>() {
             let width = 400;
             let height = 300;
@@ -274,6 +299,11 @@ impl CustomPaintSource for EguiPaintSource {
     }
     
     fn handle_ime_event(&mut self, ime_event: &dyn std::any::Any) -> bool {
+        // Check if egui wants keyboard input before processing IME events
+        if !self.wants_keyboard_input() {
+            return false; // Let other systems handle the event
+        }
+
         if let Some(ime_event) = ime_event.downcast_ref::<BlitzImeEvent>() {
             let width = 400;
             let height = 300;
