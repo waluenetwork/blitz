@@ -51,10 +51,23 @@ pub fn replaced_measure_function(
     let aspect_ratio = s_aspect_ratio.unwrap_or_else(|| inherent_size.width / inherent_size.height);
     let inv_aspect_ratio = 1.0 / aspect_ratio;
 
-    // Resolve sizes
+    // Resolve sizes - ensure canvas elements get proper parent size for percentage resolution
+    let effective_parent_size = if parent_size.width.is_none() || parent_size.height.is_none() {
+        if image_context.attr_size.width.is_some() && image_context.attr_size.height.is_some() {
+            taffy::Size {
+                width: image_context.attr_size.width,
+                height: image_context.attr_size.height,
+            }
+        } else {
+            parent_size
+        }
+    } else {
+        parent_size
+    };
+    
     let style_size = style
         .size
-        .maybe_resolve(parent_size, resolve_calc_value)
+        .maybe_resolve(effective_parent_size, resolve_calc_value)
         .maybe_apply_aspect_ratio(Some(aspect_ratio))
         .maybe_sub(box_sizing_adjustment);
     let min_size = style
