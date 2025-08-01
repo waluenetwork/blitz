@@ -5,7 +5,6 @@ use peniko::Blob;
 use vello::Renderer as VelloRenderer;
 use vello::peniko::Image;
 use wgpu::{Instance, TexelCopyTextureInfoBase, Texture};
-
 pub trait CustomPaintSource: 'static {
     fn resume(&mut self, instance: &Instance, device_handle: &DeviceHandle);
     fn suspend(&mut self);
@@ -16,6 +15,14 @@ pub trait CustomPaintSource: 'static {
         height: u32,
         scale: f64,
     ) -> Option<TextureHandle>;
+    
+    fn handle_event(&mut self, x: f32, y: f32, event_type: &str) -> bool {
+        false
+    }
+    
+    fn wants_events(&self) -> bool {
+        false
+    }
 }
 
 pub struct CustomPaintCtx<'r> {

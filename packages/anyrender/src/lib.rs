@@ -46,6 +46,10 @@ pub trait WindowRenderer {
     fn is_active(&self) -> bool;
     fn set_size(&mut self, width: u32, height: u32);
     fn render<F: FnOnce(&mut Self::ScenePainter<'_>)>(&mut self, draw_fn: F);
+
+    fn forward_event_to_custom_paint_source(&mut self, _id: u64, _x: f32, _y: f32, _event_type: &str) -> bool {
+        false
+    }
 }
 
 /// Abstraction for rendering a scene to an image buffer

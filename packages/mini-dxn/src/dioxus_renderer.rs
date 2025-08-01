@@ -75,6 +75,18 @@ impl DxnWindowRenderer {
     pub fn unregister_custom_paint_source(&self, id: u64) {
         self.inner.borrow_mut().unregister_custom_paint_source(id)
     }
+
+    #[cfg(feature = "gpu")]
+    pub fn get_custom_paint_source_mut(&self, id: u64) -> Option<std::cell::RefMut<'_, Box<dyn CustomPaintSource>>> {
+        let mut inner_borrowed = self.inner.borrow_mut();
+        if inner_borrowed.get_custom_paint_source_mut(id).is_some() {
+            Some(std::cell::RefMut::map(inner_borrowed, |inner| {
+                inner.get_custom_paint_source_mut(id).unwrap()
+            }))
+        } else {
+            None
+        }
+    }
 }
 
 impl WindowRenderer for DxnWindowRenderer {
@@ -101,5 +113,14 @@ impl WindowRenderer for DxnWindowRenderer {
 
     fn render<F: FnOnce(&mut Self::ScenePainter<'_>)>(&mut self, draw_fn: F) {
         self.inner.borrow_mut().render(draw_fn)
+    }
+
+    #[cfg(feature = "gpu")]
+    fn forward_event_to_custom_paint_source(&mut self, id: u64, x: f32, y: f32, event_type: &str) -> bool {
+        if let Some(mut paint_source) = self.get_custom_paint_source_mut(id) {
+            paint_source.handle_event(x, y, event_type)
+        } else {
+            false
+        }
     }
 }

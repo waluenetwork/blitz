@@ -1,6 +1,6 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use egui::{Context, RawInput};
+use egui::{Context, RawInput, Event, PointerButton};
 use egui_wgpu;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use wgpu::Instance;
@@ -61,6 +61,54 @@ impl EguiPaintSource {
             self.egui_ctx.begin_pass(input);
         }
     }
+    
+    fn convert_event_to_raw_input(&self, x: f32, y: f32, event_type: &str, width: u32, height: u32) -> Option<RawInput> {
+        let mut raw_input = RawInput::default();
+        raw_input.screen_rect = Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(width as f32, height as f32),
+        ));
+
+        match event_type {
+            "mousemove" => {
+                raw_input.events.push(Event::PointerMoved(egui::Pos2::new(x, y)));
+            }
+            "mousedown" => {
+                raw_input.events.push(Event::PointerButton {
+                    pos: egui::Pos2::new(x, y),
+                    button: PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::NONE,
+                });
+            }
+            "mouseup" => {
+                raw_input.events.push(Event::PointerButton {
+                    pos: egui::Pos2::new(x, y),
+                    button: PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::NONE,
+                });
+            }
+            "click" => {
+                let pos = egui::Pos2::new(x, y);
+                raw_input.events.push(Event::PointerButton {
+                    pos,
+                    button: PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::NONE,
+                });
+                raw_input.events.push(Event::PointerButton {
+                    pos,
+                    button: PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::NONE,
+                });
+            }
+            _ => return None,
+        }
+
+        Some(raw_input)
+    }
 
     fn create_texture(device: &wgpu::Device, width: u32, height: u32) -> wgpu::Texture {
         device.create_texture(&wgpu::TextureDescriptor {
@@ -86,6 +134,23 @@ impl EguiPaintSource {
 }
 
 impl CustomPaintSource for EguiPaintSource {
+    fn wants_events(&self) -> bool {
+        true
+    }
+    
+    fn handle_event(&mut self, x: f32, y: f32, event_type: &str) -> bool {
+        let width = 400;
+        let height = 300;
+        
+        if let Some(raw_input) = self.convert_event_to_raw_input(x, y, event_type, width, height) {
+            if let Err(_) = self.tx.send(raw_input) {
+                return false;
+            }
+            println!("DEBUG: Sent {} event to egui at ({}, {})", event_type, x, y);
+            return true;
+        }
+        false
+    }
     fn resume(&mut self, _instance: &Instance, device_handle: &DeviceHandle) {
         println!("DEBUG: EguiPaintSource::resume called");
         
@@ -131,9 +196,7 @@ impl CustomPaintSource for EguiPaintSource {
             return None;
         }
 
-        while let Ok(input) = self.rx.try_recv() {
-            self.egui_ctx.begin_pass(input);
-        }
+        self.process_input();
 
         let &mut EguiRendererState::Active {
             ref device,

@@ -6,6 +6,7 @@ use crate::convert_events::{
 use crate::event::{BlitzShellEvent, create_waker};
 use anyrender::WindowRenderer;
 use blitz_dom::Document;
+use blitz_dom::node::SpecialElementData;
 use blitz_paint::paint_scene;
 use blitz_traits::events::{BlitzMouseButtonEvent, MouseEventButton, MouseEventButtons, UiEvent};
 use blitz_traits::shell::Viewport;
@@ -335,6 +336,22 @@ impl<Rend: WindowRenderer> View<Rend> {
                     mods: winit_modifiers_to_kbt_modifiers(self.keyboard_modifiers.state()),
                 });
                 self.doc.handle_ui_event(event);
+                
+                if let Some(hit) = self.doc.hit(x, y) {
+                    if let Some(node) = self.doc.get_node(hit.node_id) {
+                        if let Some(element) = node.element_data() {
+                            if let SpecialElementData::Canvas(canvas_data) = &element.special_data {
+                                self.renderer.forward_event_to_custom_paint_source(
+                                    canvas_data.custom_paint_source_id, 
+                                    hit.x, 
+                                    hit.y, 
+                                    "mousemove"
+                                );
+                            }
+                        }
+                    }
+                }
+                
                 self.request_redraw();
             }
             WindowEvent::MouseInput { button, state, .. } => {
@@ -357,11 +374,40 @@ impl<Rend: WindowRenderer> View<Rend> {
                     mods: winit_modifiers_to_kbt_modifiers(self.keyboard_modifiers.state()),
                 };
 
-                let event = match state {
+                let ui_event = match state {
                     ElementState::Pressed => UiEvent::MouseDown(event),
                     ElementState::Released => UiEvent::MouseUp(event),
                 };
-                self.doc.handle_ui_event(event);
+                self.doc.handle_ui_event(ui_event);
+                
+                if let Some(hit) = self.doc.hit(self.mouse_pos.0, self.mouse_pos.1) {
+                    if let Some(node) = self.doc.get_node(hit.node_id) {
+                        if let Some(element) = node.element_data() {
+                            if let SpecialElementData::Canvas(canvas_data) = &element.special_data {
+                                let event_type = match state {
+                                    ElementState::Pressed => "mousedown",
+                                    ElementState::Released => "mouseup",
+                                };
+                                self.renderer.forward_event_to_custom_paint_source(
+                                    canvas_data.custom_paint_source_id, 
+                                    hit.x, 
+                                    hit.y, 
+                                    event_type
+                                );
+                                
+                                if matches!(state, ElementState::Released) {
+                                    self.renderer.forward_event_to_custom_paint_source(
+                                        canvas_data.custom_paint_source_id, 
+                                        hit.x, 
+                                        hit.y, 
+                                        "click"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 self.request_redraw();
             }
             WindowEvent::MouseWheel { delta, .. } => {

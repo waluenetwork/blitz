@@ -90,6 +90,10 @@ impl VelloWindowRenderer {
             drop(source);
         }
     }
+
+    pub fn get_custom_paint_source_mut(&mut self, id: u64) -> Option<&mut Box<dyn CustomPaintSource>> {
+        self.custom_paint_sources.get_mut(&id)
+    }
 }
 
 impl WindowRenderer for VelloWindowRenderer {
