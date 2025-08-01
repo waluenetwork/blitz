@@ -130,6 +130,12 @@ impl EguiPaintSource {
         self.context_id = id;
     }
 
+    pub fn has_requested_repaint(&self) -> bool {
+        self.egui_ctx.wants_pointer_input() || 
+        self.egui_ctx.wants_keyboard_input() ||
+        self.egui_ctx.is_pointer_over_area()
+    }
+
     
     fn convert_event_to_raw_input(&self, x: f32, y: f32, event_type: &str, width: u32, height: u32) -> Option<RawInput> {
         let mut raw_input = RawInput::default();
@@ -470,7 +476,6 @@ impl CustomPaintSource for EguiPaintSource {
         });
 
         self.input_state.update_from_context(&self.egui_ctx);
-
 
         let pixels_per_point = 1.0; // TODO: use actual scale
         let _shapes_count = full_output.shapes.len();

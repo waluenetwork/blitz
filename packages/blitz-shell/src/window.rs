@@ -61,6 +61,8 @@ pub struct View<Rend: WindowRenderer> {
     pub keyboard_modifiers: Modifiers,
     pub buttons: MouseEventButtons,
     pub mouse_pos: (f32, f32),
+    pub last_mouse_redraw: std::time::Instant,
+    pub mouse_redraw_throttle: std::time::Duration,
 
     #[cfg(feature = "accessibility")]
     /// Accessibility adapter for `accesskit`.
@@ -110,6 +112,8 @@ impl<Rend: WindowRenderer> View<Rend> {
             theme_override: None,
             buttons: MouseEventButtons::None,
             mouse_pos: Default::default(),
+            last_mouse_redraw: std::time::Instant::now(),
+            mouse_redraw_throttle: std::time::Duration::from_millis(16),
             #[cfg(feature = "accessibility")]
             accessibility: AccessibilityState::new(&winit_window, proxy.clone()),
         }
@@ -371,6 +375,10 @@ impl<Rend: WindowRenderer> View<Rend> {
                 });
                 self.doc.handle_ui_event(event);
                 
+                let now = std::time::Instant::now();
+                let should_redraw = now.duration_since(self.last_mouse_redraw) >= self.mouse_redraw_throttle;
+                
+                let mut needs_canvas_redraw = false;
                 if let Some(hit) = self.doc.hit(x, y) {
                     if let Some(node) = self.doc.get_node(hit.node_id) {
                         if let Some(element) = node.element_data() {
@@ -381,12 +389,16 @@ impl<Rend: WindowRenderer> View<Rend> {
                                     hit.y, 
                                     "mousemove"
                                 );
+                                needs_canvas_redraw = true;
                             }
                         }
                     }
                 }
                 
-                self.request_redraw();
+                if should_redraw && (needs_canvas_redraw || self.doc.is_animating()) {
+                    self.last_mouse_redraw = now;
+                    self.request_redraw();
+                }
             }
             WindowEvent::MouseInput { button, state, .. } => {
                 let button = match button {
