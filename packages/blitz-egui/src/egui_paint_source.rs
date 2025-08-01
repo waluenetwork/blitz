@@ -369,24 +369,27 @@ impl CustomPaintSource for EguiPaintSource {
         let texture_ref = texture.as_ref().unwrap();
         let handle = texture_handle.unwrap();
 
-        let mut events_processed = 0;
-        while let Ok(input) = self.rx.try_recv() {
-            println!("DEBUG: Processing input with {} events", input.events.len());
-            self.egui_ctx.begin_pass(input);
-            events_processed += 1;
-        }
-        
-        if events_processed > 0 {
-            println!("DEBUG: Processed {} input passes using begin_pass", events_processed);
-        }
-
         let mut raw_input = egui::RawInput::default();
         raw_input.screen_rect = Some(egui::Rect::from_min_size(
             egui::Pos2::ZERO,
             egui::Vec2::new(width as f32, height as f32),
         ));
 
-        println!("DEBUG: Running egui context with screen size: {}x{}", width, height);
+        let mut events_processed = 0;
+        while let Ok(input) = self.rx.try_recv() {
+            println!("DEBUG: Processing input with {} events", input.events.len());
+            raw_input.events.extend(input.events);
+            if input.screen_rect.is_some() {
+                raw_input.screen_rect = input.screen_rect;
+            }
+            events_processed += 1;
+        }
+        
+        if events_processed > 0 {
+            println!("DEBUG: Processed {} input passes, total events: {}", events_processed, raw_input.events.len());
+        }
+
+        println!("DEBUG: Running egui context with {} events and screen size: {}x{}", raw_input.events.len(), width, height);
         let full_output = self.egui_ctx.run(raw_input, |ctx| {
             if let Some(ref ui_fn) = self.ui_fn {
                 ui_fn(ctx);
