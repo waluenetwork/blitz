@@ -99,11 +99,16 @@ impl GlesTessellator {
 
     fn convert_bezpath_to_lyon(&self, bezpath: &BezPath) -> Result<Path> {
         let mut builder = Path::builder();
+        let mut path_started = false;
 
         for el in bezpath.elements() {
             match el {
                 PathEl::MoveTo(p) => {
+                    if path_started {
+                        builder.end(false);
+                    }
                     builder.begin(lyon::math::Point::new(p.x as f32, p.y as f32));
+                    path_started = true;
                 }
                 PathEl::LineTo(p) => {
                     builder.line_to(lyon::math::Point::new(p.x as f32, p.y as f32));
@@ -123,8 +128,13 @@ impl GlesTessellator {
                 }
                 PathEl::ClosePath => {
                     builder.close();
+                    path_started = false;
                 }
             }
+        }
+
+        if path_started {
+            builder.end(false);
         }
 
         Ok(builder.build())
