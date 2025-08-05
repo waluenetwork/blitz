@@ -16,10 +16,10 @@ fn main() -> Result<()> {
 }
 
 fn app() -> Element {
-    let integration = use_signal(|| None::<Arc<Mutex<BlitzSmithayIntegration>>>);
-    let terminals = use_signal(|| Vec::<u64>::new());
-    let status_message = use_signal(|| "Ready".to_string());
-    let performance_stats = use_signal(|| PerformanceStats::default());
+    let mut integration = use_signal(|| None::<Arc<Mutex<BlitzSmithayIntegration>>>);
+    let mut terminals = use_signal(|| Vec::<u64>::new());
+    let mut status_message = use_signal(|| "Ready".to_string());
+    let mut performance_stats = use_signal(|| PerformanceStats::default());
 
     use_effect(move || {
         if integration.read().is_none() {
@@ -294,8 +294,8 @@ fn initialize_integration() -> Result<BlitzSmithayIntegration> {
 
 fn spawn_terminal(
     integration: Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
-    terminals: Signal<Vec<u64>>,
-    status: Signal<String>,
+    mut terminals: Signal<Vec<u64>>,
+    mut status: Signal<String>,
     command: &str,
 ) {
     info!("Spawning terminal with command: {}", command);
@@ -319,8 +319,8 @@ fn spawn_terminal(
 
 fn kill_terminal(
     integration: Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
-    terminals: Signal<Vec<u64>>,
-    status: Signal<String>,
+    mut terminals: Signal<Vec<u64>>,
+    mut status: Signal<String>,
     terminal_id: u64,
 ) {
     info!("Killing terminal {}", terminal_id);
@@ -342,8 +342,8 @@ fn kill_terminal(
 
 fn kill_all_terminals(
     integration: Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
-    terminals: Signal<Vec<u64>>,
-    status: Signal<String>,
+    mut terminals: Signal<Vec<u64>>,
+    mut status: Signal<String>,
 ) {
     info!("Killing all terminals");
     
