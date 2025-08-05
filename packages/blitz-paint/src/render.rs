@@ -410,22 +410,18 @@ impl ElementCx<'_> {
         println!("🔤 Node flags.is_inline_root(): {}", self.node.flags.is_inline_root());
         
         // Debug: Check if this node has inline_layout_data even if not marked as inline root
-        if let Some(element) = self.element {
-            if let Some(inline_data) = &element.inline_layout_data {
-                let line_count = inline_data.layout.lines().count();
-                println!("🔤 Node HAS inline_layout_data with {} lines", line_count);
-                if !self.node.flags.is_inline_root() {
-                    println!("⚠️  WARNING: Node has inline_layout_data but is NOT marked as inline root!");
-                    println!("🔤 FORCING stroke_text call despite missing inline_root flag");
-                    // Force call stroke_text even if not marked as inline root
-                    crate::text::stroke_text(self.scale, scene, inline_data.layout.lines(), pos);
-                    return;
-                }
-            } else {
-                println!("🔤 Node has NO inline_layout_data");
+        if let Some(inline_data) = &self.element.inline_layout_data {
+            let line_count = inline_data.layout.lines().count();
+            println!("🔤 Node HAS inline_layout_data with {} lines", line_count);
+            if !self.node.flags.is_inline_root() {
+                println!("⚠️  WARNING: Node has inline_layout_data but is NOT marked as inline root!");
+                println!("🔤 FORCING stroke_text call despite missing inline_root flag");
+                // Force call stroke_text even if not marked as inline root
+                crate::text::stroke_text(self.scale, scene, inline_data.layout.lines(), pos);
+                return;
             }
         } else {
-            println!("🔤 Node has NO element data");
+            println!("🔤 Node has NO inline_layout_data");
         }
         
         if self.node.flags.is_inline_root() {
