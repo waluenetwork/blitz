@@ -4,6 +4,7 @@ use gl::types::*;
 use kurbo::Point;
 use rustc_hash::FxHashMap;
 use std::collections::HashMap;
+use tracing;
 
 #[derive(Debug, Clone, Copy)]
 pub struct GlyphTexture {
@@ -35,20 +36,16 @@ impl GlesTextRenderer {
     }
     
     fn load_default_font(&mut self) -> Result<()> {
-        let font_data: &[u8] = &[0u8; 1024][..];
-        let font = Font::from_bytes(font_data, FontSettings::default())
-            .unwrap_or_else(|_| {
-                Font::from_bytes(&[0u8; 1024][..], FontSettings::default())
-                    .expect("Failed to create minimal font")
-            });
-        
-        self.default_font = Some(font.clone());
-        self.font_cache.insert("default".to_string(), font);
-        
+        tracing::warn!("Text rendering disabled - no embedded font available");
         Ok(())
     }
     
     pub fn render_text(&mut self, text: &str, font_size: f32, position: Point, color: [f32; 4]) -> Result<Vec<TextQuad>> {
+        if self.font_cache.is_empty() && self.default_font.is_none() {
+            tracing::debug!("Skipping text rendering - no fonts available");
+            return Ok(Vec::new());
+        }
+        
         let mut quads = Vec::new();
         
         let mut cursor_x = position.x as f32;
@@ -76,7 +73,8 @@ impl GlesTextRenderer {
     
     fn get_font(&self, name: &str) -> Result<&Font> {
         self.font_cache.get(name)
-            .ok_or_else(|| anyhow::anyhow!("Font '{}' not found", name))
+            .or_else(|| self.default_font.as_ref())
+            .ok_or_else(|| anyhow::anyhow!("Font '{}' not found and no default font available", name))
     }
     
     fn get_or_rasterize_glyph(&mut self, ch: char, size: u32) -> Result<&GlyphTexture> {
