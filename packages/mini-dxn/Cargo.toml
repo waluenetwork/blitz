@@ -25,12 +25,14 @@ cpu = ["cpu-pixels"]
 cpu-pixels = ["cpu-base", "anyrender_vello_cpu/pixels_window_renderer"]
 cpu-softbuffer = ["cpu-base", "anyrender_vello_cpu/softbuffer_window_renderer"]
 cpu-base = ["dep:anyrender_vello_cpu"]
+gles = ["dep:anyrender_gles"]
 
 [dependencies]
 # Blitz dependencies
 anyrender = { workspace = true }
 anyrender_vello = { workspace = true, optional = true }
 anyrender_vello_cpu = { workspace = true, optional = true }
+anyrender_gles = { workspace = true, optional = true }
 blitz-paint = { workspace = true }
 blitz-dom =  { workspace = true }
 blitz-net = { workspace = true, optional = true }

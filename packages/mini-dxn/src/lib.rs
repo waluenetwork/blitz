@@ -15,9 +15,9 @@ mod mutation_writer;
 mod dioxus_renderer;
 use std::any::Any;
 
-#[cfg(feature = "gpu")]
+#[cfg(all(feature = "gpu", not(feature = "gles")))]
 pub use anyrender_vello::wgpu::{Features, Limits};
-#[cfg(feature = "gpu")]
+#[cfg(all(feature = "gpu", not(feature = "gles")))]
 pub use dioxus_renderer::use_wgpu;
 
 pub use dioxus_document::DioxusDocument;
@@ -42,12 +42,12 @@ pub fn launch_cfg(
     platform_config: Vec<Box<dyn Any>>,
 ) {
     // Read config values
-    #[cfg(feature = "gpu")]
+    #[cfg(all(feature = "gpu", not(feature = "gles")))]
     let mut features = None;
-    #[cfg(feature = "gpu")]
+    #[cfg(all(feature = "gpu", not(feature = "gles")))]
     let mut limits = None;
     for mut cfg in platform_config {
-        #[cfg(feature = "gpu")]
+        #[cfg(all(feature = "gpu", not(feature = "gles")))]
         {
             cfg = match cfg.downcast::<Features>() {
                 Ok(value) => {
@@ -94,9 +94,9 @@ pub fn launch_cfg(
     let net_provider = None;
 
     // Create the renderer
-    #[cfg(feature = "gpu")]
+    #[cfg(all(feature = "gpu", not(feature = "gles")))]
     let renderer = DxnWindowRenderer::with_features_and_limits(features, limits);
-    #[cfg(feature = "cpu-base")]
+    #[cfg(any(feature = "cpu-base", feature = "gles"))]
     let renderer = DxnWindowRenderer::new();
 
     // Spin up the virtualdom
