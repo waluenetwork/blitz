@@ -301,7 +301,12 @@ fn spawn_terminal(
     info!("Spawning terminal with command: {}", command);
     
     if let Some(int) = integration.read().as_ref() {
-        match int.lock().unwrap().spawn_terminal(command) {
+        let result = {
+            let mut integration_guard = int.lock().unwrap();
+            integration_guard.spawn_terminal(command)
+        };
+        
+        match result {
             Ok(terminal_id) => {
                 terminals.write().push(terminal_id);
                 status.set(format!("Spawned terminal {} with command: {}", terminal_id, command));
@@ -326,7 +331,12 @@ fn kill_terminal(
     info!("Killing terminal {}", terminal_id);
     
     if let Some(int) = integration.read().as_ref() {
-        match int.lock().unwrap().get_terminal_manager_mut().kill_terminal(terminal_id) {
+        let result = {
+            let mut integration_guard = int.lock().unwrap();
+            integration_guard.get_terminal_manager_mut().kill_terminal(terminal_id)
+        };
+        
+        match result {
             Ok(_) => {
                 terminals.write().retain(|&id| id != terminal_id);
                 status.set(format!("Killed terminal {}", terminal_id));
@@ -352,7 +362,12 @@ fn kill_all_terminals(
         let mut killed_count = 0;
         
         for terminal_id in terminal_ids {
-            if int.lock().unwrap().get_terminal_manager_mut().kill_terminal(terminal_id).is_ok() {
+            let result = {
+                let mut integration_guard = int.lock().unwrap();
+                integration_guard.get_terminal_manager_mut().kill_terminal(terminal_id)
+            };
+            
+            if result.is_ok() {
                 killed_count += 1;
             }
         }
