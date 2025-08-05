@@ -66,12 +66,22 @@ fn app() -> Element {
                         style: "margin-bottom: 15px;",
                         button {
                             style: "background: #4CAF50; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 1em;",
-                            onclick: move |_| spawn_terminal(&integration, &terminals, &status_message, "default"),
+                            onclick: {
+                                let integration = integration.clone();
+                                let terminals = terminals.clone();
+                                let status_message = status_message.clone();
+                                move |_| spawn_terminal(integration, terminals, status_message, "default")
+                            },
                             "🚀 Spawn weston-terminal"
                         }
                         button {
                             style: "background: #2196F3; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 1em;",
-                            onclick: move |_| spawn_terminal(&integration, &terminals, &status_message, "htop"),
+                            onclick: {
+                                let integration = integration.clone();
+                                let terminals = terminals.clone();
+                                let status_message = status_message.clone();
+                                move |_| spawn_terminal(integration, terminals, status_message, "htop")
+                            },
                             "📊 Launch htop"
                         }
                     }
@@ -80,12 +90,22 @@ fn app() -> Element {
                         style: "margin-bottom: 15px;",
                         button {
                             style: "background: #FF9800; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 1em;",
-                            onclick: move |_| spawn_terminal(&integration, &terminals, &status_message, "vim"),
+                            onclick: {
+                                let integration = integration.clone();
+                                let terminals = terminals.clone();
+                                let status_message = status_message.clone();
+                                move |_| spawn_terminal(integration, terminals, status_message, "vim")
+                            },
                             "✏️ Open Vim Editor"
                         }
                         button {
                             style: "background: #9C27B0; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; font-size: 1em;",
-                            onclick: move |_| spawn_terminal(&integration, &terminals, &status_message, "python3"),
+                            onclick: {
+                                let integration = integration.clone();
+                                let terminals = terminals.clone();
+                                let status_message = status_message.clone();
+                                move |_| spawn_terminal(integration, terminals, status_message, "python3")
+                            },
                             "🐍 Python REPL"
                         }
                     }
@@ -95,7 +115,12 @@ fn app() -> Element {
                             style: "margin-top: 20px;",
                             button {
                                 style: "background: #f44336; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em;",
-                                onclick: move |_| kill_all_terminals(&integration, &terminals, &status_message),
+                                onclick: {
+                                    let integration = integration.clone();
+                                    let terminals = terminals.clone();
+                                    let status_message = status_message.clone();
+                                    move |_| kill_all_terminals(integration, terminals, status_message)
+                                },
                                 "❌ Kill All Terminals"
                             }
                         }
@@ -148,24 +173,33 @@ fn app() -> Element {
                     
                     div {
                         style: "display: grid; gap: 10px;",
-                        for terminal_id in terminals.read().iter() {
-                            div {
-                                key: "{terminal_id}",
-                                style: "background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #555; display: flex; justify-content: space-between; align-items: center;",
+                        {
+                            let terminal_list = terminals.read().clone();
+                            for terminal_id in terminal_list.iter() {
                                 div {
-                                    span {
-                                        style: "color: #4CAF50; font-weight: bold; margin-right: 10px;",
-                                        "Terminal #{terminal_id}"
+                                    key: "{terminal_id}",
+                                    style: "background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #555; display: flex; justify-content: space-between; align-items: center;",
+                                    div {
+                                        span {
+                                            style: "color: #4CAF50; font-weight: bold; margin-right: 10px;",
+                                            "Terminal #{terminal_id}"
+                                        }
+                                        span {
+                                            style: "color: #888;",
+                                            "Running in Wayland surface"
+                                        }
                                     }
-                                    span {
-                                        style: "color: #888;",
-                                        "Running in Wayland surface"
+                                    button {
+                                        style: "background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em;",
+                                        onclick: {
+                                            let integration = integration.clone();
+                                            let terminals = terminals.clone();
+                                            let status_message = status_message.clone();
+                                            let terminal_id = *terminal_id;
+                                            move |_| kill_terminal(integration, terminals, status_message, terminal_id)
+                                        },
+                                        "❌ Kill"
                                     }
-                                }
-                                button {
-                                    style: "background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em;",
-                                    onclick: move |_| kill_terminal(&integration, &terminals, &status_message, *terminal_id),
-                                    "❌ Kill"
                                 }
                             }
                         }
@@ -259,9 +293,9 @@ fn initialize_integration() -> Result<BlitzSmithayIntegration> {
 }
 
 fn spawn_terminal(
-    integration: &Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
-    terminals: &Signal<Vec<u64>>,
-    status: &Signal<String>,
+    integration: Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
+    terminals: Signal<Vec<u64>>,
+    status: Signal<String>,
     command: &str,
 ) {
     info!("Spawning terminal with command: {}", command);
@@ -284,15 +318,15 @@ fn spawn_terminal(
 }
 
 fn kill_terminal(
-    integration: &Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
-    terminals: &Signal<Vec<u64>>,
-    status: &Signal<String>,
+    integration: Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
+    terminals: Signal<Vec<u64>>,
+    status: Signal<String>,
     terminal_id: u64,
 ) {
     info!("Killing terminal {}", terminal_id);
     
     if let Some(int) = integration.read().as_ref() {
-        match int.lock().unwrap().get_terminal_manager().kill_terminal(terminal_id) {
+        match int.lock().unwrap().get_terminal_manager_mut().kill_terminal(terminal_id) {
             Ok(_) => {
                 terminals.write().retain(|&id| id != terminal_id);
                 status.set(format!("Killed terminal {}", terminal_id));
@@ -307,9 +341,9 @@ fn kill_terminal(
 }
 
 fn kill_all_terminals(
-    integration: &Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
-    terminals: &Signal<Vec<u64>>,
-    status: &Signal<String>,
+    integration: Signal<Option<Arc<Mutex<BlitzSmithayIntegration>>>>,
+    terminals: Signal<Vec<u64>>,
+    status: Signal<String>,
 ) {
     info!("Killing all terminals");
     
@@ -318,7 +352,7 @@ fn kill_all_terminals(
         let mut killed_count = 0;
         
         for terminal_id in terminal_ids {
-            if int.lock().unwrap().get_terminal_manager().kill_terminal(terminal_id).is_ok() {
+            if int.lock().unwrap().get_terminal_manager_mut().kill_terminal(terminal_id).is_ok() {
                 killed_count += 1;
             }
         }

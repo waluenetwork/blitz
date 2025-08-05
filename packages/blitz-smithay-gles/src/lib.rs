@@ -58,6 +58,10 @@ impl BlitzSmithayIntegration {
         &self.terminal_manager
     }
     
+    pub fn get_terminal_manager_mut(&mut self) -> &mut TerminalManager {
+        &mut self.terminal_manager
+    }
+    
     pub fn spawn_terminal(&mut self, command: &str) -> Result<u64> {
         debug!("Spawning terminal with command: {}", command);
         self.terminal_manager.spawn_terminal(command)
