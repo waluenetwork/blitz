@@ -1,0 +1,29 @@
+[package]
+name = "anyrender_gles"
+description = "OpenGL ES backend for anyrender"
+version = "0.5.0"
+homepage = "https://github.com/dioxuslabs/blitz"
+repository = "https://github.com/dioxuslabs/blitz"
+documentation = "https://docs.rs/anyrender_gles"
+license.workspace = true
+edition = "2024"
+
+[features]
+log_frame_times = []
+
+[dependencies]
+anyrender = { workspace = true }
+kurbo = { workspace = true }
+peniko = { workspace = true }
+raw-window-handle = { workspace = true }
+futures-intrusive = { workspace = true }
+pollster = { workspace = true }
+rustc-hash = { workspace = true }
+gl = "0.14"
+glutin = "0.32"
+winit = { workspace = true }
+lyon = "1.0"
+fontdue = "0.7"
+anyhow = "1.0"
+tracing = { workspace = true }
+bytemuck = { workspace = true }
