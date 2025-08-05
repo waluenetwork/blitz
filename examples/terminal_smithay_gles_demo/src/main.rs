@@ -173,33 +173,30 @@ fn app() -> Element {
                     
                     div {
                         style: "display: grid; gap: 10px;",
-                        {
-                            let terminal_list = terminals.read().clone();
-                            for terminal_id in terminal_list.iter() {
+                        for terminal_id in terminals.read().iter() {
+                            div {
+                                key: "{terminal_id}",
+                                style: "background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #555; display: flex; justify-content: space-between; align-items: center;",
                                 div {
-                                    key: "{terminal_id}",
-                                    style: "background: #1e1e1e; padding: 15px; border-radius: 4px; border: 1px solid #555; display: flex; justify-content: space-between; align-items: center;",
-                                    div {
-                                        span {
-                                            style: "color: #4CAF50; font-weight: bold; margin-right: 10px;",
-                                            "Terminal #{terminal_id}"
-                                        }
-                                        span {
-                                            style: "color: #888;",
-                                            "Running in Wayland surface"
-                                        }
+                                    span {
+                                        style: "color: #4CAF50; font-weight: bold; margin-right: 10px;",
+                                        "Terminal #{terminal_id}"
                                     }
-                                    button {
-                                        style: "background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em;",
-                                        onclick: {
-                                            let integration = integration.clone();
-                                            let terminals = terminals.clone();
-                                            let status_message = status_message.clone();
-                                            let terminal_id = *terminal_id;
-                                            move |_| kill_terminal(integration, terminals, status_message, terminal_id)
-                                        },
-                                        "❌ Kill"
+                                    span {
+                                        style: "color: #888;",
+                                        "Running in Wayland surface"
                                     }
+                                }
+                                button {
+                                    style: "background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em;",
+                                    onclick: {
+                                        let integration = integration.clone();
+                                        let terminals = terminals.clone();
+                                        let status_message = status_message.clone();
+                                        let terminal_id = *terminal_id;
+                                        move |_| kill_terminal(integration, terminals, status_message, terminal_id)
+                                    },
+                                    "❌ Kill"
                                 }
                             }
                         }
