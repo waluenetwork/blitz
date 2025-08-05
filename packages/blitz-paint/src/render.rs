@@ -256,7 +256,9 @@ impl BlitzDomPainter<'_> {
             cx.draw_canvas(scene);
             cx.draw_input(scene);
 
+            println!("🔤 About to draw text input text");
             cx.draw_text_input_text(scene, content_position);
+            println!("🔤 About to draw inline layout (text content)");
             cx.draw_inline_layout(scene, content_position);
             cx.draw_marker(scene, content_position);
             cx.draw_children(scene);
@@ -404,6 +406,7 @@ struct ElementCx<'a> {
 
 impl ElementCx<'_> {
     fn draw_inline_layout(&self, scene: &mut impl PaintScene, pos: Point) {
+        println!("🔤 draw_inline_layout() called");
         if self.node.flags.is_inline_root() {
             let text_layout = self.element
                 .inline_layout_data
@@ -418,6 +421,7 @@ impl ElementCx<'_> {
     }
 
     fn draw_text_input_text(&self, scene: &mut impl PaintScene, pos: Point) {
+        println!("🔤 draw_text_input_text() called");
         // Render the text in text inputs
         if let Some(input_data) = self.text_input {
             let transform = Affine::translate((pos.x * self.scale, pos.y * self.scale));

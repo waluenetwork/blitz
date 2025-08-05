@@ -168,6 +168,97 @@ impl GlesScenePainter {
         }
     }
     
+    fn render_text_quads(&self, quads: &[crate::text_renderer::TextQuad]) {
+        use crate::text_renderer::TextQuad;
+        
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+        
+        for (i, quad) in quads.iter().enumerate() {
+            let base_index = (i * 4) as u32;
+            
+            let quad_vertices = [
+                quad.position[0], quad.position[1] + quad.size[1], // position
+                0.0, 1.0, // texcoord
+                quad.color[0], quad.color[1], quad.color[2], quad.color[3], // color
+                
+                quad.position[0] + quad.size[0], quad.position[1] + quad.size[1], // position
+                1.0, 1.0, // texcoord
+                quad.color[0], quad.color[1], quad.color[2], quad.color[3], // color
+                
+                quad.position[0] + quad.size[0], quad.position[1], // position
+                1.0, 0.0, // texcoord
+                quad.color[0], quad.color[1], quad.color[2], quad.color[3], // color
+                
+                quad.position[0], quad.position[1], // position
+                0.0, 0.0, // texcoord
+                quad.color[0], quad.color[1], quad.color[2], quad.color[3], // color
+            ];
+            
+            vertices.extend_from_slice(&quad_vertices);
+            
+            let quad_indices = [
+                base_index, base_index + 1, base_index + 2,
+                base_index, base_index + 2, base_index + 3,
+            ];
+            indices.extend_from_slice(&quad_indices);
+        }
+        
+        if vertices.is_empty() || indices.is_empty() {
+            println!("⚪ No text vertices/indices to render");
+            return;
+        }
+        
+        println!("🔤 Rendering text with {} vertices, {} indices", vertices.len() / 8, indices.len());
+        
+        unsafe {
+            gl::BindVertexArray(self.vao);
+            
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (vertices.len() * mem::size_of::<f32>()) as isize,
+                vertices.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
+            
+            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 8 * mem::size_of::<f32>() as i32, 0 as *const _);
+            gl::EnableVertexAttribArray(0);
+            
+            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, 8 * mem::size_of::<f32>() as i32, (2 * mem::size_of::<f32>()) as *const _);
+            gl::EnableVertexAttribArray(1);
+            
+            gl::VertexAttribPointer(2, 4, gl::FLOAT, gl::FALSE, 8 * mem::size_of::<f32>() as i32, (4 * mem::size_of::<f32>()) as *const _);
+            gl::EnableVertexAttribArray(2);
+            
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (indices.len() * mem::size_of::<u32>()) as isize,
+                indices.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW,
+            );
+            
+            if let Some(first_quad) = quads.first() {
+                gl::ActiveTexture(gl::TEXTURE0);
+                gl::BindTexture(gl::TEXTURE_2D, first_quad.texture_id);
+                
+                if let Ok(texture_loc) = self.shader_manager.get_uniform_location(ShaderType::Text, "u_texture") {
+                    gl::Uniform1i(texture_loc, 0);
+                }
+            }
+            
+            gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
+            
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                println!("❌ OpenGL error after text DrawElements: 0x{:x}", error);
+            } else {
+                println!("✅ Text DrawElements completed successfully for {} indices", indices.len());
+            }
+        }
+    }
+    
     fn color_to_array(color: Color) -> [f32; 4] {
         let components = color.components;
         [
@@ -318,21 +409,42 @@ impl PaintScene for GlesScenePainter {
         _brush_alpha: f32,
         transform: Affine,
         _glyph_transform: Option<Affine>,
-        _glyphs: impl Iterator<Item = anyrender::Glyph>,
+        glyphs: impl Iterator<Item = anyrender::Glyph>,
     ) {
         let brush_ref = brush.into();
         let color = Self::brush_to_color(brush_ref);
         
-        let text = "Text";
+        println!("🔤 GlesScenePainter::draw_glyphs() called with font_size: {}, color: {:?}", font_size, color);
+        
+        let glyph_vec: Vec<_> = glyphs.collect();
+        if glyph_vec.is_empty() {
+            println!("⚪ No glyphs to render, skipping");
+            return;
+        }
+        
+        let text = "Sample Text";
         let position = kurbo::Point::new(0.0, 0.0);
         
         let old_transform = self.current_transform;
         self.current_transform = self.current_transform * transform;
         
-        if let Ok(quads) = self.text_renderer.render_text(text, font_size, position, color) {
-            if self.set_transform_uniforms(ShaderType::Text).is_ok() {
-                for _quad in quads {
+        match self.text_renderer.render_text(text, font_size, position, color) {
+            Ok(quads) => {
+                if quads.is_empty() {
+                    println!("⚪ No text quads generated, skipping");
+                } else {
+                    println!("✅ Generated {} text quads", quads.len());
+                    if self.set_transform_uniforms(ShaderType::Text).is_ok() {
+                        println!("✅ Set text transform uniforms successfully");
+                        self.render_text_quads(&quads);
+                        println!("✅ Rendered {} text quads", quads.len());
+                    } else {
+                        println!("❌ Failed to set text transform uniforms");
+                    }
                 }
+            },
+            Err(e) => {
+                println!("❌ Text rendering failed: {:?}", e);
             }
         }
         
