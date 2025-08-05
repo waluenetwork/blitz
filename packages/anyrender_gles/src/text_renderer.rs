@@ -36,8 +36,19 @@ impl GlesTextRenderer {
     }
     
     fn load_default_font(&mut self) -> Result<()> {
-        tracing::warn!("Text rendering disabled - no embedded font available");
-        Ok(())
+        const EMBEDDED_FONT: &[u8] = include_bytes!("../../blitz-dom/assets/moz-bullet-font.otf");
+        
+        match Font::from_bytes(EMBEDDED_FONT, FontSettings::default()) {
+            Ok(font) => {
+                self.default_font = Some(font);
+                tracing::debug!("Loaded embedded font for text rendering");
+                Ok(())
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load embedded font, text rendering disabled: {}", e);
+                Ok(())
+            }
+        }
     }
     
     pub fn render_text(&mut self, text: &str, font_size: f32, position: Point, color: [f32; 4]) -> Result<Vec<TextQuad>> {
