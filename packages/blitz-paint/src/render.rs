@@ -67,6 +67,7 @@ impl BlitzDomPainter<'_> {
     /// Make sure you do those before trying to render
     pub fn paint_scene(&self, scene: &mut impl PaintScene) {
         // Simply render the document (the root element (note that this is not the same as the root node)))
+        println!("🎨 BlitzDomPainter::paint_scene() called - starting render");
         scene.reset();
         let viewport_scroll = self.dom.as_ref().viewport_scroll();
 
@@ -106,9 +107,13 @@ impl BlitzDomPainter<'_> {
         if let Some(bg_color) = background_color {
             let bg_color = bg_color.as_srgb_color();
             let rect = Rect::from_origin_size((0.0, 0.0), (bg_width as f64, bg_height as f64));
+            println!("🎨 Drawing background color: {:?}, rect: {:?}", bg_color, rect);
             scene.fill(Fill::NonZero, Affine::IDENTITY, bg_color, None, &rect);
+        } else {
+            println!("🎨 No background color to draw");
         }
 
+        println!("🎨 Starting to render root element with id: {}", root_id);
         self.render_element(
             scene,
             root_id,
@@ -117,6 +122,7 @@ impl BlitzDomPainter<'_> {
                 y: -viewport_scroll.y,
             },
         );
+        println!("🎨 Finished rendering root element");
 
         // Render debug overlay
         if self.devtools.highlight_hover {

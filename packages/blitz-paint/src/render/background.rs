@@ -29,6 +29,8 @@ impl ElementCx<'_> {
         use GenericImage::*;
         use StyloBackgroundClip::*;
 
+        println!("🎨 ElementCx::draw_background() called");
+
         let bg_styles = &self.style.get_background();
 
         let background_clip = get_cyclic(
@@ -100,9 +102,12 @@ impl ElementCx<'_> {
             .resolve_to_absolute(&current_color)
             .as_srgb_color();
 
+        println!("🎨 draw_solid_bg() called with color: {:?}", bg_color);
         if bg_color != Color::TRANSPARENT {
-            // Fill the color
+            println!("✅ Drawing solid background color");
             scene.fill(Fill::NonZero, self.transform, bg_color, None, shape);
+        } else {
+            println!("⚪ Background color is transparent, skipping");
         }
     }
 

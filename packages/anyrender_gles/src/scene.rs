@@ -158,6 +158,13 @@ impl GlesScenePainter {
         unsafe {
             gl::BindVertexArray(self.vao);
             gl::DrawElements(gl::TRIANGLES, count as i32, gl::UNSIGNED_INT, std::ptr::null());
+            
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                println!("❌ OpenGL error after DrawElements: 0x{:x}", error);
+            } else {
+                println!("✅ DrawElements completed successfully for {} indices", count);
+            }
         }
     }
     
@@ -182,6 +189,7 @@ impl GlesScenePainter {
 
 impl PaintScene for GlesScenePainter {
     fn reset(&mut self) {
+        println!("🔄 GlesScenePainter::reset() called");
         self.transform_stack.clear();
         self.current_transform = Affine::IDENTITY;
         self.layer_stack.clear();
@@ -267,20 +275,33 @@ impl PaintScene for GlesScenePainter {
             Paint::Custom(_) => [1.0, 1.0, 0.0, 1.0],
         };
         
+        println!("🎨 GlesScenePainter::fill() called with color: {:?}", color);
+        
         let mut path = BezPath::new();
         shape.path_elements(0.1).for_each(|el| path.push(el));
         
         let buffers = match self.tessellator.tessellate_fill(&path, color) {
-            Ok(buffers) => buffers,
-            Err(_) => return,
+            Ok(buffers) => {
+                println!("✅ Tessellation successful: {} vertices, {} indices", 
+                    buffers.vertices.len(), buffers.indices.len());
+                buffers
+            },
+            Err(e) => {
+                println!("❌ Tessellation failed: {:?}", e);
+                return;
+            },
         };
         
         let old_transform = self.current_transform;
         self.current_transform = self.current_transform * transform;
         
         if self.set_transform_uniforms(ShaderType::Fill).is_ok() {
+            println!("✅ Set transform uniforms successfully");
             self.upload_geometry(&buffers.vertices, &buffers.indices);
             self.draw_elements(buffers.indices.len());
+            println!("✅ Drew {} elements", buffers.indices.len());
+        } else {
+            println!("❌ Failed to set transform uniforms");
         }
         
         self.current_transform = old_transform;
@@ -333,8 +354,12 @@ impl PaintScene for GlesScenePainter {
         self.current_transform = self.current_transform * transform;
         
         if self.set_transform_uniforms(ShaderType::Fill).is_ok() {
+            println!("✅ Set transform uniforms successfully for box shadow");
             self.upload_geometry(&buffers.vertices, &buffers.indices);
             self.draw_elements(buffers.indices.len());
+            println!("✅ Drew {} elements for box shadow", buffers.indices.len());
+        } else {
+            println!("❌ Failed to set transform uniforms for box shadow");
         }
         
         self.current_transform = old_transform;

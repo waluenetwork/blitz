@@ -72,7 +72,10 @@ impl WindowRenderer for GlesWindowRenderer {
     }
 
     fn render<F: FnOnce(&mut Self::ScenePainter<'_>)>(&mut self, draw_fn: F) {
+        println!("🖼️  GlesWindowRenderer::render() called with size {}x{}", self.width, self.height);
+        
         let Some(ref context) = self.gl_context else {
+            println!("❌ No GL context available");
             return;
         };
 
@@ -82,7 +85,10 @@ impl WindowRenderer for GlesWindowRenderer {
         }
 
         let mut scene_painter = match GlesScenePainter::new(self.width, self.height) {
-            Ok(painter) => painter,
+            Ok(painter) => {
+                println!("✅ Created GlesScenePainter successfully");
+                painter
+            },
             Err(e) => {
                 tracing::error!("Failed to create scene painter: {}", e);
                 return;
@@ -91,12 +97,17 @@ impl WindowRenderer for GlesWindowRenderer {
 
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            println!("🧹 Cleared GL buffers");
         }
 
+        println!("🎨 Calling draw function...");
         draw_fn(&mut scene_painter);
+        println!("🎨 Draw function completed");
 
         if let Err(e) = context.swap_buffers() {
             tracing::error!("Failed to swap buffers: {}", e);
+        } else {
+            println!("🔄 Swapped GL buffers successfully");
         }
     }
 
