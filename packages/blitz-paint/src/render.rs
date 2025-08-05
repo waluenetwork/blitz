@@ -406,8 +406,10 @@ struct ElementCx<'a> {
 
 impl ElementCx<'_> {
     fn draw_inline_layout(&self, scene: &mut impl PaintScene, pos: Point) {
-        println!("🔤 draw_inline_layout() called");
+        println!("🔤 draw_inline_layout() called for node id: {}", self.node.id);
+        println!("🔤 Node flags.is_inline_root(): {}", self.node.flags.is_inline_root());
         if self.node.flags.is_inline_root() {
+            println!("🔤 Node IS inline root, getting text layout");
             let text_layout = self.element
                 .inline_layout_data
                 .as_ref()
@@ -415,8 +417,11 @@ impl ElementCx<'_> {
                     panic!("Tried to render node marked as inline root that does not have an inline layout: {:?}", self.node);
                 });
 
+            println!("🔤 Text layout found, calling stroke_text with {} lines", text_layout.layout.lines().count());
             // Render text
             crate::text::stroke_text(self.scale, scene, text_layout.layout.lines(), pos);
+        } else {
+            println!("🔤 Node is NOT inline root, skipping stroke_text");
         }
     }
 
