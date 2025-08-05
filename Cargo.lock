@@ -6864,7 +6864,7 @@ dependencies = [
 [[package]]
 name = "smithay-egui"
 version = "0.2.0"
-source = "git+https://github.com/walue-ai/wayland_dev_1?branch=devin%2F1722783175-terminal-in-egui-integration#e6f767001a75c2b35f1d9fdfca7cb19bbf48312e"
+source = "git+https://github.com/Smithay/smithay-egui#f15cdfa9a494f4422aab9fe339f2e558555a0a36"
 dependencies = [
  "cgmath",
  "egui",

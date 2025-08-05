@@ -66,8 +66,8 @@ fn app() -> Element {
                         style: "margin-bottom: 15px;",
                         button {
                             style: "background: #4CAF50; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 1em;",
-                            onclick: move |_| spawn_terminal(&integration, &terminals, &status_message, "bash"),
-                            "🚀 Spawn Bash Terminal"
+                            onclick: move |_| spawn_terminal(&integration, &terminals, &status_message, "default"),
+                            "🚀 Spawn weston-terminal"
                         }
                         button {
                             style: "background: #2196F3; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 1em;",

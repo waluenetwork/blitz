@@ -10,7 +10,7 @@ blitz-smithay-gles = { path = "../../packages/blitz-smithay-gles" }
 mini-dxn = { workspace = true, features = ["gles"] }
 dioxus = { workspace = true }
 smithay = "0.3"
-smithay-egui = { git = "https://github.com/walue-ai/wayland_dev_1", branch = "devin/1722783175-terminal-in-egui-integration" }
+smithay-egui = { git = "https://github.com/Smithay/smithay-egui" }
 anyhow = "1.0"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = { workspace = true }

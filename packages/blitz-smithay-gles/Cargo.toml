@@ -9,7 +9,7 @@ blitz = { workspace = true }
 anyrender_gles = { workspace = true }
 mini-dxn = { workspace = true, features = ["gles"] }
 smithay = "0.3"
-smithay-egui = { git = "https://github.com/walue-ai/wayland_dev_1", branch = "devin/1722783175-terminal-in-egui-integration" }
+smithay-egui = { git = "https://github.com/Smithay/smithay-egui" }
 dioxus = { workspace = true }
 anyhow = "1.0"
 gl = "0.14"

@@ -33,11 +33,17 @@ impl TerminalManager {
         
         debug!("Spawning terminal {} with command: {}", terminal_id, command);
         
-        let process = Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .spawn()
-            .map_err(|e| anyhow::anyhow!("Failed to spawn terminal: {}", e))?;
+        let process = if command.is_empty() || command == "default" {
+            Command::new("weston-terminal")
+                .spawn()
+                .map_err(|e| anyhow::anyhow!("Failed to spawn weston-terminal: {}", e))?
+        } else {
+            Command::new("sh")
+                .arg("-c")
+                .arg(command)
+                .spawn()
+                .map_err(|e| anyhow::anyhow!("Failed to spawn terminal with command '{}': {}", command, e))?
+        };
         
         let terminal = TerminalSession {
             id: terminal_id,
