@@ -2,7 +2,7 @@
 use anyhow::Result;
 use gl::types::*;
 use rustc_hash::FxHashMap;
-use tracing::{debug, error};
+use tracing::debug;
 
 #[derive(Debug, Clone)]
 pub struct Surface {

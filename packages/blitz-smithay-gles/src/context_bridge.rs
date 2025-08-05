@@ -2,7 +2,7 @@
 use anyhow::Result;
 use anyrender_gles::GlContext;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use tracing::{debug, error};
+use tracing::debug;
 
 pub struct ContextBridge {
     gl_context: GlContext,

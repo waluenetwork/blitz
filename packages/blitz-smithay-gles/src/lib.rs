@@ -1,11 +1,9 @@
 //! 
 
 use anyhow::Result;
-use anyrender_gles::GlContext;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use rustc_hash::FxHashMap;
 use std::sync::{Arc, Mutex};
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 pub mod context_bridge;
 pub mod event_dispatcher;
@@ -66,7 +64,7 @@ impl BlitzSmithayIntegration {
     }
     
     pub fn render_frame(&mut self) -> Result<()> {
-        let context = self.context_bridge.lock().unwrap();
+        let mut context = self.context_bridge.lock().unwrap();
         context.make_current()?;
         
         self.surface_manager.render_surfaces()?;

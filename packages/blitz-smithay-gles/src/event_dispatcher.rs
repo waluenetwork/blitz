@@ -11,7 +11,7 @@ pub enum EventTarget {
     Terminal(u64),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Event {
     pub target: EventTarget,
     pub event_type: String,
@@ -70,7 +70,7 @@ impl EventDispatcher {
         self.focus_target.as_ref()
     }
     
-    pub fn route_keyboard_event(&self, key_event: &dyn Any) -> Result<EventTarget> {
+    pub fn route_keyboard_event(&self, _key_event: &dyn Any) -> Result<EventTarget> {
         if let Some(target) = &self.focus_target {
             Ok(target.clone())
         } else {
