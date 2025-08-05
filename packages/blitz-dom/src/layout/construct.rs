@@ -210,7 +210,9 @@ pub(crate) fn collect_layout_children(
 
             
             // TODO: fix display:contents
+            println!("🏗️  Layout construction for node {}: all_inline={}, all_block={}", container_node_id, all_inline, all_block);
             if all_inline {
+                println!("✅ Node {} marked as INLINE ROOT - building inline layout", container_node_id);
                 let (inline_layout, ilayout_children) = build_inline_layout(doc, container_node_id);
                 doc.nodes[container_node_id]
                     .flags
@@ -228,6 +230,8 @@ pub(crate) fn collect_layout_children(
                     layout_children.push(after);
                 }
                 return;
+            } else {
+                println!("❌ Node {} NOT marked as inline root (all_inline=false)", container_node_id);
             }
 
             // If the children are either all inline or all block then simply return the regular children
