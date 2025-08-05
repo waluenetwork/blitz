@@ -111,7 +111,9 @@ impl WindowRenderer for GlesWindowRenderer {
     fn forward_ime_event_to_custom_paint_source(&mut self, _id: u64, _ime_event: &dyn std::any::Any) -> bool {
         false
     }
-    
+}
+
+impl GlesWindowRenderer {
     pub fn get_window_handle(&self) -> Option<Arc<dyn WindowHandle>> {
         self.window_handle.clone()
     }
