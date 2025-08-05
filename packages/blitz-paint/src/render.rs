@@ -408,6 +408,19 @@ impl ElementCx<'_> {
     fn draw_inline_layout(&self, scene: &mut impl PaintScene, pos: Point) {
         println!("🔤 draw_inline_layout() called for node id: {}", self.node.id);
         println!("🔤 Node flags.is_inline_root(): {}", self.node.flags.is_inline_root());
+        
+        // Debug: Check if this node has inline_layout_data even if not marked as inline root
+        if let Some(element) = self.element {
+            if let Some(inline_data) = &element.inline_layout_data {
+                println!("🔤 Node HAS inline_layout_data with {} lines", inline_data.layout.lines().count());
+                if !self.node.flags.is_inline_root() {
+                    println!("⚠️  WARNING: Node has inline_layout_data but is NOT marked as inline root!");
+                }
+            } else {
+                println!("🔤 Node has NO inline_layout_data");
+            }
+        }
+        
         if self.node.flags.is_inline_root() {
             println!("🔤 Node IS inline root, getting text layout");
             let text_layout = self.element
