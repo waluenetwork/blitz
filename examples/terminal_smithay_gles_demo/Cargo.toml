@@ -1,0 +1,18 @@
+[package]
+name = "terminal_smithay_gles_demo"
+version = "0.1.0"
+edition = "2021"
+description = "POC demo combining Smithay compositor with Blitz GLES rendering"
+
+[dependencies]
+blitz = { workspace = true }
+blitz-smithay-gles = { path = "../../packages/blitz-smithay-gles" }
+mini-dxn = { workspace = true, features = ["gles"] }
+dioxus = { workspace = true }
+smithay = "0.3"
+smithay-egui = { git = "https://github.com/walue-ai/wayland_dev_1", branch = "devin/1722783175-terminal-in-egui-integration" }
+anyhow = "1.0"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing = { workspace = true }
+tracing-subscriber = "0.3"
+winit = { workspace = true }

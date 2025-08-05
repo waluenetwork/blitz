@@ -1,0 +1,19 @@
+[package]
+name = "blitz-smithay-gles"
+version = "0.1.0"
+edition = "2021"
+description = "Integration package for Blitz GLES backend with Smithay compositor"
+
+[dependencies]
+blitz = { workspace = true }
+anyrender_gles = { workspace = true }
+mini-dxn = { workspace = true, features = ["gles"] }
+smithay = "0.3"
+smithay-egui = { git = "https://github.com/walue-ai/wayland_dev_1", branch = "devin/1722783175-terminal-in-egui-integration" }
+dioxus = { workspace = true }
+anyhow = "1.0"
+gl = "0.14"
+glutin = "0.32"
+raw-window-handle = { workspace = true }
+rustc-hash = { workspace = true }
+tracing = { workspace = true }

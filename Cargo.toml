@@ -15,6 +15,7 @@ members = [
   "packages/mini-dxn",
   "packages/stylo_taffy",
   "packages/blitz-egui",
+  "packages/blitz-smithay-gles",
   "apps/readme",
   "apps/bump",
   "wpt/runner",
@@ -22,6 +23,7 @@ members = [
   "examples/wgpu_texture",
   "examples/egui_demo",
   "examples/anyrender",
+  "examples/terminal_smithay_gles_demo",
 ]
 exclude = ["sites"]
 resolver = "2"
