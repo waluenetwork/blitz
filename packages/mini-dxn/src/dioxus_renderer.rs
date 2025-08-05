@@ -160,3 +160,10 @@ impl WindowRenderer for DxnWindowRenderer {
         false
     }
 }
+
+impl DxnWindowRenderer {
+    #[cfg(feature = "gles")]
+    pub fn get_window_handle(&self) -> Option<Arc<dyn anyrender::WindowHandle>> {
+        self.inner.borrow().get_window_handle()
+    }
+}

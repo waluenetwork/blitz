@@ -283,10 +283,18 @@ struct PerformanceStats {
 }
 
 fn initialize_integration() -> Result<BlitzSmithayIntegration> {
+    use dioxus_core::prelude::consume_context;
+    use mini_dxn::DxnWindowRenderer;
+    
     info!("Initializing Blitz-Smithay integration");
     
+    let renderer = consume_context::<DxnWindowRenderer>();
     
-    Err(anyhow::anyhow!("Integration initialization not yet implemented for runtime"))
+    if let Some(window_handle) = renderer.get_window_handle() {
+        BlitzSmithayIntegration::new(window_handle.as_ref())
+    } else {
+        Err(anyhow::anyhow!("Window handle not available - renderer may not be resumed yet"))
+    }
 }
 
 fn spawn_terminal(
