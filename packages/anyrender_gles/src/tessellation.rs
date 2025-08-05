@@ -104,31 +104,73 @@ impl GlesTessellator {
         for el in bezpath.elements() {
             match el {
                 PathEl::MoveTo(p) => {
+                    let x = p.x as f32;
+                    let y = p.y as f32;
+                    
+                    if !x.is_finite() || !y.is_finite() {
+                        continue;
+                    }
+                    
                     if path_started {
                         builder.end(false);
                     }
-                    builder.begin(lyon::math::Point::new(p.x as f32, p.y as f32));
+                    builder.begin(lyon::math::Point::new(x, y));
                     path_started = true;
                 }
                 PathEl::LineTo(p) => {
-                    builder.line_to(lyon::math::Point::new(p.x as f32, p.y as f32));
+                    let x = p.x as f32;
+                    let y = p.y as f32;
+                    
+                    if !x.is_finite() || !y.is_finite() {
+                        continue;
+                    }
+                    
+                    if path_started {
+                        builder.line_to(lyon::math::Point::new(x, y));
+                    }
                 }
                 PathEl::QuadTo(p1, p2) => {
-                    builder.quadratic_bezier_to(
-                        lyon::math::Point::new(p1.x as f32, p1.y as f32),
-                        lyon::math::Point::new(p2.x as f32, p2.y as f32),
-                    );
+                    let x1 = p1.x as f32;
+                    let y1 = p1.y as f32;
+                    let x2 = p2.x as f32;
+                    let y2 = p2.y as f32;
+                    
+                    if !x1.is_finite() || !y1.is_finite() || !x2.is_finite() || !y2.is_finite() {
+                        continue;
+                    }
+                    
+                    if path_started {
+                        builder.quadratic_bezier_to(
+                            lyon::math::Point::new(x1, y1),
+                            lyon::math::Point::new(x2, y2),
+                        );
+                    }
                 }
                 PathEl::CurveTo(p1, p2, p3) => {
-                    builder.cubic_bezier_to(
-                        lyon::math::Point::new(p1.x as f32, p1.y as f32),
-                        lyon::math::Point::new(p2.x as f32, p2.y as f32),
-                        lyon::math::Point::new(p3.x as f32, p3.y as f32),
-                    );
+                    let x1 = p1.x as f32;
+                    let y1 = p1.y as f32;
+                    let x2 = p2.x as f32;
+                    let y2 = p2.y as f32;
+                    let x3 = p3.x as f32;
+                    let y3 = p3.y as f32;
+                    
+                    if !x1.is_finite() || !y1.is_finite() || !x2.is_finite() || !y2.is_finite() || !x3.is_finite() || !y3.is_finite() {
+                        continue;
+                    }
+                    
+                    if path_started {
+                        builder.cubic_bezier_to(
+                            lyon::math::Point::new(x1, y1),
+                            lyon::math::Point::new(x2, y2),
+                            lyon::math::Point::new(x3, y3),
+                        );
+                    }
                 }
                 PathEl::ClosePath => {
-                    builder.close();
-                    path_started = false;
+                    if path_started {
+                        builder.close();
+                        path_started = false;
+                    }
                 }
             }
         }
