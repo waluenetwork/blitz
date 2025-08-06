@@ -62,7 +62,7 @@ impl GlesScenePainter {
                 2,
                 gl::FLOAT,
                 gl::FALSE,
-                mem::size_of::<Vertex>() as i32,
+                (6 * mem::size_of::<f32>()) as i32,
                 0 as *const _,
             );
             gl::EnableVertexAttribArray(0);
@@ -72,7 +72,7 @@ impl GlesScenePainter {
                 4,
                 gl::FLOAT,
                 gl::FALSE,
-                mem::size_of::<Vertex>() as i32,
+                (6 * mem::size_of::<f32>()) as i32,
                 (2 * mem::size_of::<f32>()) as *const _,
             );
             gl::EnableVertexAttribArray(1);
