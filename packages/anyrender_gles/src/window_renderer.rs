@@ -151,6 +151,10 @@ impl WindowRenderer for GlesWindowRenderer {
         draw_fn(&mut scene_painter);
         println!("🎨 Draw function completed");
 
+        unsafe {
+            gl::Finish();
+        }
+        
         if let Err(e) = context.swap_buffers() {
             tracing::error!("Failed to swap buffers: {}", e);
         } else {
