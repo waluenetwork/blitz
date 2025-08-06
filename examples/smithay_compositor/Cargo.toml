@@ -13,8 +13,7 @@ blitz-dom = { workspace = true }
 blitz-html = { workspace = true }
 blitz-shell = { workspace = true }
 
-# Smithay dependencies - conditional compilation based on system library availability
-# Enable with: cargo build --features="smithay-backend"
+# Smithay dependencies - enabling for real Wayland compositor functionality
 smithay = { version = "0.3", optional = true }
 wayland-server = { version = "0.31", optional = true }
 wayland-protocols = { version = "0.32", optional = true }
