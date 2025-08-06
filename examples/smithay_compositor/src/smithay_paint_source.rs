@@ -9,24 +9,13 @@ use tracing::debug;
 
 #[cfg(feature = "smithay-backend")]
 use smithay::{
-    backend::renderer::{
-        element::{
-            surface::{render_elements_from_surface_tree, WaylandSurfaceRenderElement},
-            Kind,
-        },
-        utils::on_commit_buffer_handler,
-        Renderer,
-    },
     delegate_compositor, delegate_data_device, delegate_seat, delegate_shm, delegate_xdg_shell,
     input::{Seat, SeatHandler, SeatState},
-    reexports::wayland_server::{protocol::wl_seat, Display},
+    reexports::wayland_server::{Display, protocol::wl_seat},
     utils::Serial,
     wayland::{
         buffer::BufferHandler,
-        compositor::{
-            with_surface_tree_downward, CompositorClientState, CompositorHandler, CompositorState,
-            SurfaceAttributes, TraversalAction,
-        },
+        compositor::{CompositorClientState, CompositorHandler, CompositorState},
         selection::{
             data_device::{ClientDndGrabHandler, DataDeviceHandler, DataDeviceState, ServerDndGrabHandler},
             SelectionHandler,
@@ -37,17 +26,20 @@ use smithay::{
 };
 
 #[cfg(feature = "smithay-backend")]
-use wayland_protocols::xdg::shell::server::xdg_toplevel;
-
-#[cfg(feature = "smithay-backend")]
 use wayland_server::{
     backend::{ClientData, ClientId, DisconnectReason},
     protocol::{
         wl_buffer,
-        wl_surface::{self, WlSurface},
+        wl_surface::WlSurface,
     },
     Client, ListeningSocket,
 };
+
+#[cfg(feature = "smithay-backend")]
+use wayland_protocols::xdg::shell::server::xdg_toplevel;
+
+#[cfg(feature = "smithay-backend")]
+use std::os::unix::io::OwnedFd;
 
 pub struct SmithayPaintSource {
     state: SmithayRendererState,
@@ -129,48 +121,6 @@ impl BufferHandler for SmithayApp {
     fn buffer_destroyed(&mut self, _buffer: &wl_buffer::WlBuffer) {}
 }
 
-#[cfg(feature = "smithay-backend")]
-impl XdgShellHandler for SmithayApp {
-    fn xdg_shell_state(&mut self) -> &mut XdgShellState {
-        &mut self.xdg_shell_state
-    }
-
-    fn new_toplevel(&mut self, surface: ToplevelSurface) {
-        debug!("DEBUG: New toplevel surface created via XdgShellHandler");
-        surface.with_pending_state(|state| {
-            state.states.set(xdg_toplevel::State::Activated);
-        });
-        surface.send_configure();
-    }
-
-    fn new_popup(&mut self, _surface: PopupSurface, _positioner: PositionerState) {
-        debug!("DEBUG: New popup surface created");
-    }
-
-    fn grab(&mut self, _surface: PopupSurface, _seat: wl_seat::WlSeat, _serial: Serial) {}
-
-    fn reposition_request(&mut self, _surface: PopupSurface, _positioner: PositionerState, _token: u32) {}
-}
-
-#[cfg(feature = "smithay-backend")]
-impl SelectionHandler for SmithayApp {
-    type SelectionUserData = ();
-}
-
-#[cfg(feature = "smithay-backend")]
-impl DataDeviceHandler for SmithayApp {
-    fn data_device_state(&mut self) -> &mut DataDeviceState {
-        &mut self.data_device_state
-    }
-}
-
-#[cfg(feature = "smithay-backend")]
-impl ClientDndGrabHandler for SmithayApp {}
-
-#[cfg(feature = "smithay-backend")]
-impl ServerDndGrabHandler for SmithayApp {
-    fn send(&mut self, _mime_type: String, _fd: std::os::unix::io::OwnedFd, _seat: Seat<Self>) {}
-}
 
 #[cfg(feature = "smithay-backend")]
 impl CompositorHandler for SmithayApp {
@@ -182,9 +132,8 @@ impl CompositorHandler for SmithayApp {
         &client.get_data::<ClientState>().unwrap().compositor_state
     }
 
-    fn commit(&mut self, surface: &WlSurface) {
+    fn commit(&mut self, _surface: &WlSurface) {
         debug!("DEBUG: Surface commit received");
-        on_commit_buffer_handler::<Self>(surface);
     }
 }
 
@@ -193,6 +142,53 @@ impl ShmHandler for SmithayApp {
     fn shm_state(&self) -> &ShmState {
         &self.shm_state
     }
+}
+
+#[cfg(feature = "smithay-backend")]
+impl XdgShellHandler for SmithayApp {
+    fn xdg_shell_state(&mut self) -> &mut XdgShellState {
+        &mut self.xdg_shell_state
+    }
+
+    fn new_toplevel(&mut self, surface: ToplevelSurface) {
+        debug!("DEBUG: New toplevel surface created");
+        surface.with_pending_state(|state| {
+            state.states.set(xdg_toplevel::State::Activated);
+        });
+        surface.send_configure();
+    }
+
+    fn new_popup(&mut self, _surface: PopupSurface, _positioner: PositionerState) {
+        debug!("DEBUG: New popup surface created");
+    }
+
+    fn grab(&mut self, _surface: PopupSurface, _seat: wl_seat::WlSeat, _serial: Serial) {
+        debug!("DEBUG: Popup grab requested");
+    }
+
+    fn reposition_request(&mut self, _surface: PopupSurface, _positioner: PositionerState, _token: u32) {
+        debug!("DEBUG: Popup reposition requested");
+    }
+}
+
+#[cfg(feature = "smithay-backend")]
+impl SelectionHandler for SmithayApp {
+    type SelectionUserData = ();
+}
+
+#[cfg(feature = "smithay-backend")]
+impl DataDeviceHandler for SmithayApp {
+    fn data_device_state(&self) -> &DataDeviceState {
+        &self.data_device_state
+    }
+}
+
+#[cfg(feature = "smithay-backend")]
+impl ClientDndGrabHandler for SmithayApp {}
+
+#[cfg(feature = "smithay-backend")]
+impl ServerDndGrabHandler for SmithayApp {
+    fn send(&mut self, _mime_type: String, _fd: OwnedFd, _seat: Seat<Self>) {}
 }
 
 #[cfg(feature = "smithay-backend")]
@@ -209,16 +205,7 @@ impl SeatHandler for SmithayApp {
     fn cursor_image(&mut self, _seat: &Seat<Self>, _image: smithay::input::pointer::CursorImageStatus) {}
 }
 
-#[cfg(feature = "smithay-backend")]
-delegate_xdg_shell!(SmithayApp);
-#[cfg(feature = "smithay-backend")]
-delegate_compositor!(SmithayApp);
-#[cfg(feature = "smithay-backend")]
-delegate_shm!(SmithayApp);
-#[cfg(feature = "smithay-backend")]
-delegate_seat!(SmithayApp);
-#[cfg(feature = "smithay-backend")]
-delegate_data_device!(SmithayApp);
+
 
 #[derive(Clone)]
 struct TextureAndHandle {
@@ -339,11 +326,11 @@ impl SmithayPaintSource {
         let (r, g, b) = if let Some(state) = wayland_state {
             #[cfg(feature = "smithay-backend")]
             {
-                let surface_count = state.app_state.xdg_shell_state.toplevel_surfaces().len();
-                match surface_count {
-                    0 => (0.1, 0.2, 0.3), // Default blue - no surfaces
-                    1 => (0.2, 0.4, 0.2), // Green - one surface
-                    _ => (0.4, 0.3, 0.2), // Orange - multiple surfaces
+                let client_count = state.clients.len();
+                match client_count {
+                    0 => (0.1, 0.2, 0.3), // Default blue - no clients
+                    1 => (0.2, 0.4, 0.2), // Green - one client
+                    _ => (0.4, 0.3, 0.2), // Orange - multiple clients
                 }
             }
             #[cfg(not(feature = "smithay-backend"))]
@@ -387,7 +374,7 @@ impl SmithayPaintSource {
         
         let socket_name = format!("wayland-blitz-{}", std::process::id());
         
-        let mut display: Display<SmithayApp> = match Display::new() {
+        let display: Display<SmithayApp> = match Display::new() {
             Ok(display) => display,
             Err(e) => {
                 debug!("DEBUG: Failed to create Wayland display: {}", e);
@@ -400,7 +387,7 @@ impl SmithayPaintSource {
         let compositor_state = CompositorState::new::<SmithayApp>(&dh);
         let shm_state = ShmState::new::<SmithayApp>(&dh, vec![]);
         let mut seat_state = SeatState::new();
-        let seat = seat_state.new_wl_seat(&dh, "blitz");
+        let seat = seat_state.new_wl_seat(&dh, "blitz-compositor");
         
         let app_state = SmithayApp {
             compositor_state,
@@ -488,13 +475,9 @@ impl SmithayPaintSource {
                 debug!("DEBUG: Error flushing clients: {}", e);
             }
             
-            let time = wayland_state.start_time.elapsed().as_millis() as u32;
-            for surface in wayland_state.app_state.xdg_shell_state.toplevel_surfaces() {
-                send_frames_surface_tree(surface.wl_surface(), time);
-            }
+            let _time = wayland_state.start_time.elapsed().as_millis() as u32;
             
-            let surface_count = wayland_state.app_state.xdg_shell_state.toplevel_surfaces().len();
-            if surface_count > 0 {
+            if !wayland_state.clients.is_empty() {
                 let _ = self.tx.send(SmithayMessage::NewToplevelSurface);
             }
         }
@@ -565,26 +548,6 @@ impl ActiveSmithayRenderer {
     }
 }
 
-#[cfg(feature = "smithay-backend")]
-pub fn send_frames_surface_tree(surface: &wl_surface::WlSurface, time: u32) {
-    with_surface_tree_downward(
-        surface,
-        (),
-        |_, _, &()| TraversalAction::DoChildren(()),
-        |_surf, states, &()| {
-            for callback in states
-                .cached_state
-                .get::<SurfaceAttributes>()
-                .current()
-                .frame_callbacks
-                .drain(..)
-            {
-                callback.done(time);
-            }
-        },
-        |_, _, &()| true,
-    );
-}
 
 fn create_compositor_texture(device: &wgpu::Device, width: u32, height: u32) -> wgpu::Texture {
     debug!("DEBUG: Creating compositor texture {}x{}", width, height);
@@ -603,3 +566,14 @@ fn create_compositor_texture(device: &wgpu::Device, width: u32, height: u32) -> 
         view_formats: &[],
     })
 }
+
+#[cfg(feature = "smithay-backend")]
+delegate_xdg_shell!(SmithayApp);
+#[cfg(feature = "smithay-backend")]
+delegate_compositor!(SmithayApp);
+#[cfg(feature = "smithay-backend")]
+delegate_shm!(SmithayApp);
+#[cfg(feature = "smithay-backend")]
+delegate_seat!(SmithayApp);
+#[cfg(feature = "smithay-backend")]
+delegate_data_device!(SmithayApp);
