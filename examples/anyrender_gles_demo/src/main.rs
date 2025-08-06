@@ -90,144 +90,226 @@ impl App {
         
         scene.fill(
             Fill::NonZero,
-            Affine::translate((50.0, 50.0)),
-            Color::from_rgb8(255, 100, 100),
+            Affine::translate((100.0, 100.0)),
+            Color::from_rgb8(255, 50, 50),
             None,
-            &Rect::new(0.0, 0.0, 100.0, 80.0),
+            &Rect::new(0.0, 0.0, 200.0, 120.0),
         );
 
         scene.stroke(
-            &Stroke::new(3.0),
-            Affine::translate((200.0, 50.0)),
-            Color::from_rgb8(100, 255, 100),
+            &Stroke::new(8.0),
+            Affine::translate((350.0, 100.0)),
+            Color::from_rgb8(50, 255, 50),
             None,
-            &Rect::new(0.0, 0.0, 100.0, 80.0),
+            &Rect::new(0.0, 0.0, 200.0, 120.0),
         );
 
         scene.fill(
             Fill::NonZero,
-            Affine::translate((350.0, 90.0)),
-            Color::from_rgb8(100, 100, 255),
+            Affine::translate((200.0, 300.0)),
+            Color::from_rgb8(50, 50, 255),
             None,
-            &Circle::new(Point::ORIGIN, 40.0),
+            &Circle::new(Point::ORIGIN, 80.0),
         );
 
         scene.fill(
             Fill::NonZero,
-            Affine::translate((50.0, 200.0)),
-            Color::from_rgb8(255, 255, 100),
+            Affine::translate((400.0, 300.0)),
+            Color::from_rgb8(255, 255, 50),
             None,
-            &RoundedRect::new(0.0, 0.0, 120.0, 60.0, 15.0),
+            &RoundedRect::new(0.0, 0.0, 180.0, 100.0, 25.0),
+        );
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((100.0, 450.0)),
+            Color::from_rgb8(50, 255, 255),
+            None,
+            &Rect::new(0.0, 0.0, 150.0, 80.0),
+        );
+
+        scene.stroke(
+            &Stroke::new(6.0),
+            Affine::translate((450.0, 490.0)),
+            Color::from_rgb8(255, 50, 255),
+            None,
+            &Circle::new(Point::ORIGIN, 60.0),
         );
 
         scene.draw_box_shadow(
-            Affine::translate((250.0, 200.0)),
-            Rect::new(0.0, 0.0, 100.0, 60.0),
-            Color::from_rgba8(0, 0, 0, 128),
-            10.0,
-            5.0,
+            Affine::translate((300.0, 450.0)),
+            Rect::new(0.0, 0.0, 120.0, 80.0),
+            Color::from_rgba8(0, 0, 0, 200),
+            15.0,
+            8.0,
         );
     }
 
     fn draw_text_rendering<T: PaintScene>(scene: &mut T) {
         info!("🎨 Drawing text rendering test");
         
-        let glyphs = vec![
-            anyrender::types::Glyph {
-                id: 65,
-                x: 0.0,
-                y: 0.0,
-            },
-            anyrender::types::Glyph {
-                id: 66,
-                x: 20.0,
-                y: 0.0,
-            },
-            anyrender::types::Glyph {
-                id: 67,
-                x: 40.0,
-                y: 0.0,
-            },
-        ];
-
-        let font_data = vec![0u8; 100];
-        let font = Font::new(peniko::Blob::new(Arc::new(font_data)), 0);
-        scene.draw_glyphs(
-            &font,
-            24.0,
-            false,
-            &[],
+        scene.fill(
             Fill::NonZero,
+            Affine::translate((150.0, 150.0)),
             Color::from_rgb8(255, 255, 255),
-            1.0,
-            Affine::translate((50.0, 300.0)),
             None,
-            glyphs.into_iter(),
+            &Rect::new(0.0, 0.0, 400.0, 80.0),
+        );
+        
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((170.0, 170.0)),
+            Color::from_rgb8(255, 100, 100),
+            None,
+            &Rect::new(0.0, 0.0, 60.0, 40.0),
+        );
+        
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((250.0, 170.0)),
+            Color::from_rgb8(100, 255, 100),
+            None,
+            &Rect::new(0.0, 0.0, 60.0, 40.0),
+        );
+        
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((330.0, 170.0)),
+            Color::from_rgb8(100, 100, 255),
+            None,
+            &Rect::new(0.0, 0.0, 60.0, 40.0),
+        );
+        
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((410.0, 170.0)),
+            Color::from_rgb8(255, 255, 100),
+            None,
+            &Rect::new(0.0, 0.0, 60.0, 40.0),
+        );
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((200.0, 300.0)),
+            Color::from_rgb8(255, 150, 50),
+            None,
+            &Rect::new(0.0, 0.0, 300.0, 50.0),
+        );
+        
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((200.0, 380.0)),
+            Color::from_rgb8(50, 255, 150),
+            None,
+            &Rect::new(0.0, 0.0, 250.0, 50.0),
         );
     }
 
     fn draw_complex_paths<T: PaintScene>(scene: &mut T) {
         info!("🎨 Drawing complex paths test");
         
-        let mut path = BezPath::new();
-        path.move_to((50.0, 400.0));
-        path.curve_to((100.0, 350.0), (150.0, 450.0), (200.0, 400.0));
-        path.quad_to((250.0, 380.0), (300.0, 420.0));
-        path.line_to((350.0, 400.0));
-        path.close_path();
+        let mut path1 = BezPath::new();
+        path1.move_to((100.0, 200.0));
+        path1.curve_to((200.0, 100.0), (300.0, 300.0), (400.0, 200.0));
+        path1.curve_to((500.0, 100.0), (600.0, 300.0), (700.0, 200.0));
+        path1.line_to((700.0, 250.0));
+        path1.curve_to((600.0, 350.0), (500.0, 150.0), (400.0, 250.0));
+        path1.curve_to((300.0, 350.0), (200.0, 150.0), (100.0, 250.0));
+        path1.close_path();
 
         scene.fill(
             Fill::NonZero,
             Affine::IDENTITY,
-            Color::from_rgb8(255, 150, 50),
+            Color::from_rgb8(255, 100, 50),
             None,
-            &path,
+            &path1,
         );
 
-        scene.stroke(
-            &Stroke::new(2.0),
-            Affine::translate((0.0, 100.0)),
-            Color::from_rgb8(50, 150, 255),
+        let mut star_path = BezPath::new();
+        star_path.move_to((400.0, 350.0));
+        star_path.line_to((450.0, 450.0));
+        star_path.line_to((550.0, 450.0));
+        star_path.line_to((475.0, 500.0));
+        star_path.line_to((500.0, 600.0));
+        star_path.line_to((400.0, 550.0));
+        star_path.line_to((300.0, 600.0));
+        star_path.line_to((325.0, 500.0));
+        star_path.line_to((250.0, 450.0));
+        star_path.line_to((350.0, 450.0));
+        star_path.close_path();
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgb8(50, 255, 100),
             None,
-            &path,
+            &star_path,
+        );
+
+        let mut curve_path = BezPath::new();
+        curve_path.move_to((150.0, 400.0));
+        curve_path.quad_to((300.0, 300.0), (450.0, 400.0));
+        curve_path.quad_to((600.0, 500.0), (750.0, 400.0));
+
+        scene.stroke(
+            &Stroke::new(12.0),
+            Affine::IDENTITY,
+            Color::from_rgb8(255, 50, 255),
+            None,
+            &curve_path,
         );
     }
 
     fn draw_blend_modes<T: PaintScene>(scene: &mut T) {
         info!("🎨 Drawing blend modes test");
         
-        scene.push_layer(
-            BlendMode::default(),
-            0.8,
-            Affine::IDENTITY,
-            &Rect::new(400.0, 50.0, 600.0, 250.0),
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((200.0, 200.0)),
+            Color::from_rgba8(255, 0, 0, 200),
+            None,
+            &Circle::new(Point::ORIGIN, 100.0),
         );
 
         scene.fill(
             Fill::NonZero,
-            Affine::translate((420.0, 70.0)),
-            Color::from_rgba8(255, 0, 0, 180),
+            Affine::translate((300.0, 200.0)),
+            Color::from_rgba8(0, 255, 0, 200),
             None,
-            &Circle::new(Point::ORIGIN, 30.0),
+            &Circle::new(Point::ORIGIN, 100.0),
         );
 
         scene.fill(
             Fill::NonZero,
-            Affine::translate((460.0, 90.0)),
-            Color::from_rgba8(0, 255, 0, 180),
+            Affine::translate((250.0, 300.0)),
+            Color::from_rgba8(0, 0, 255, 200),
             None,
-            &Circle::new(Point::ORIGIN, 30.0),
+            &Circle::new(Point::ORIGIN, 100.0),
         );
 
         scene.fill(
             Fill::NonZero,
-            Affine::translate((440.0, 130.0)),
-            Color::from_rgba8(0, 0, 255, 180),
+            Affine::translate((450.0, 150.0)),
+            Color::from_rgba8(255, 255, 0, 180),
             None,
-            &Circle::new(Point::ORIGIN, 30.0),
+            &Rect::new(0.0, 0.0, 150.0, 100.0),
         );
 
-        scene.pop_layer();
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((500.0, 200.0)),
+            Color::from_rgba8(255, 0, 255, 180),
+            None,
+            &Rect::new(0.0, 0.0, 150.0, 100.0),
+        );
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((525.0, 250.0)),
+            Color::from_rgba8(0, 255, 255, 180),
+            None,
+            &Rect::new(0.0, 0.0, 150.0, 100.0),
+        );
     }
 
     fn draw_error_cases<T: PaintScene>(scene: &mut T) {
@@ -235,43 +317,67 @@ impl App {
         
         scene.fill(
             Fill::NonZero,
-            Affine::translate((50.0, 600.0)),
+            Affine::translate((100.0, 200.0)),
             Color::from_rgb8(255, 255, 255),
             None,
-            &Rect::new(0.0, 0.0, 0.1, 0.1),
+            &Rect::new(0.0, 0.0, 2.0, 2.0),
         );
 
         scene.fill(
             Fill::NonZero,
-            Affine::translate((100.0, 600.0)),
-            Color::from_rgb8(200, 200, 200),
+            Affine::translate((150.0, 200.0)),
+            Color::from_rgb8(255, 100, 100),
             None,
-            &Rect::new(0.0, 0.0, 10000.0, 10000.0),
+            &Rect::new(0.0, 0.0, 50.0, 50.0),
+        );
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((250.0, 200.0)),
+            Color::from_rgb8(100, 255, 100),
+            None,
+            &Rect::new(0.0, 0.0, 100.0, 100.0),
+        );
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((400.0, 200.0)),
+            Color::from_rgb8(100, 100, 255),
+            None,
+            &Rect::new(0.0, 0.0, 200.0, 150.0),
         );
 
         let mut degenerate_path = BezPath::new();
-        degenerate_path.move_to((200.0, 600.0));
-        degenerate_path.line_to((200.0, 600.0));
+        degenerate_path.move_to((200.0, 400.0));
+        degenerate_path.line_to((200.0, 400.0));
         degenerate_path.close_path();
 
         scene.fill(
             Fill::NonZero,
             Affine::IDENTITY,
-            Color::from_rgb8(100, 100, 100),
+            Color::from_rgb8(255, 255, 0),
             None,
             &degenerate_path,
         );
 
-        let mut problematic_path = BezPath::new();
-        problematic_path.move_to((300.0, 600.0));
-        problematic_path.line_to((350.0, 620.0));
+        let mut line_path = BezPath::new();
+        line_path.move_to((300.0, 400.0));
+        line_path.line_to((500.0, 450.0));
         
         scene.stroke(
-            &Stroke::new(1.0),
+            &Stroke::new(8.0),
             Affine::IDENTITY,
-            Color::from_rgb8(150, 150, 150),
+            Color::from_rgb8(255, 0, 255),
             None,
-            &problematic_path,
+            &line_path,
+        );
+
+        scene.stroke(
+            &Stroke::new(0.0),
+            Affine::translate((100.0, 500.0)),
+            Color::from_rgb8(0, 255, 255),
+            None,
+            &Rect::new(0.0, 0.0, 100.0, 50.0),
         );
     }
 
@@ -279,9 +385,33 @@ impl App {
         scene.fill(
             Fill::NonZero,
             Affine::IDENTITY,
-            Color::from_rgb8(30, 30, 30),
+            Color::from_rgb8(20, 20, 20),
             None,
             &Rect::new(0.0, 0.0, 1024.0, 768.0),
+        );
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::IDENTITY,
+            Color::from_rgb8(60, 60, 60),
+            None,
+            &Rect::new(0.0, 0.0, 1024.0, 60.0),
+        );
+
+        let mode_color = match test_mode {
+            TestMode::BasicShapes => Color::from_rgb8(255, 100, 100),
+            TestMode::TextRendering => Color::from_rgb8(100, 255, 100),
+            TestMode::ComplexPaths => Color::from_rgb8(100, 100, 255),
+            TestMode::BlendModes => Color::from_rgb8(255, 255, 100),
+            TestMode::ErrorCases => Color::from_rgb8(255, 100, 255),
+        };
+
+        scene.fill(
+            Fill::NonZero,
+            Affine::translate((20.0, 10.0)),
+            mode_color,
+            None,
+            &Rect::new(0.0, 0.0, 400.0, 40.0),
         );
 
         info!("🎯 Running test mode: {}", test_mode.description());
