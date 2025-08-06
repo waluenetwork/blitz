@@ -76,6 +76,10 @@ impl GlesScenePainter {
             );
             gl::EnableVertexAttribArray(1);
             
+            println!("🔍 Debug - VAO setup complete. Vertex attributes:");
+            println!("  - Attribute 0: 2 floats (position) at offset 0, stride {}", mem::size_of::<Vertex>());
+            println!("  - Attribute 1: 4 floats (color) at offset {}, stride {}", 2 * mem::size_of::<f32>(), mem::size_of::<Vertex>());
+            
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
             gl::BindVertexArray(0);
         }
@@ -118,6 +122,8 @@ impl GlesScenePainter {
             let transform_loc = self.shader_manager.get_uniform_location(shader_type, "u_transform")?;
             let projection_loc = self.shader_manager.get_uniform_location(shader_type, "u_projection")?;
             
+            println!("🔍 Debug - Uniform locations: transform={}, projection={}", transform_loc, projection_loc);
+            
             gl::UniformMatrix4fv(transform_loc, 1, gl::FALSE, transform_matrix.as_ptr());
             gl::UniformMatrix4fv(projection_loc, 1, gl::FALSE, self.projection_matrix.as_ptr());
         }
@@ -136,6 +142,16 @@ impl GlesScenePainter {
     }
     
     fn upload_geometry(&self, vertices: &[Vertex], indices: &[u32]) {
+        if !vertices.is_empty() {
+            println!("🔍 Debug - First vertex: pos={:?}, color={:?}", vertices[0].position, vertices[0].color);
+            if vertices.len() > 1 {
+                println!("🔍 Debug - Second vertex: pos={:?}, color={:?}", vertices[1].position, vertices[1].color);
+            }
+        }
+        
+        println!("🔍 Debug - Vertex struct size: {} bytes", mem::size_of::<Vertex>());
+        println!("🔍 Debug - Uploading {} vertices, {} indices", vertices.len(), indices.len());
+        
         unsafe {
             gl::BindVertexArray(self.vao);
             
@@ -378,6 +394,15 @@ impl PaintScene for GlesScenePainter {
             Ok(buffers) => {
                 println!("✅ Tessellation successful: {} vertices, {} indices", 
                     buffers.vertices.len(), buffers.indices.len());
+                
+                if !buffers.vertices.is_empty() {
+                    let min_x = buffers.vertices.iter().map(|v| v.position[0]).fold(f32::INFINITY, f32::min);
+                    let max_x = buffers.vertices.iter().map(|v| v.position[0]).fold(f32::NEG_INFINITY, f32::max);
+                    let min_y = buffers.vertices.iter().map(|v| v.position[1]).fold(f32::INFINITY, f32::min);
+                    let max_y = buffers.vertices.iter().map(|v| v.position[1]).fold(f32::NEG_INFINITY, f32::max);
+                    println!("🔍 Debug - Vertex coordinate ranges: X=[{:.2}, {:.2}], Y=[{:.2}, {:.2}]", min_x, max_x, min_y, max_y);
+                }
+                
                 buffers
             },
             Err(e) => {
