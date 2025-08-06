@@ -142,6 +142,21 @@ impl GlesScenePainter {
             let mut current_program = 0;
             gl::GetIntegerv(gl::CURRENT_PROGRAM, &mut current_program);
             println!("🔍 Debug - Current active program after uniforms: {}", current_program);
+            
+            let mut transform_uniform = [0.0f32; 16];
+            gl::GetUniformfv(program, transform_loc, transform_uniform.as_mut_ptr());
+            println!("🔍 Debug - Transform uniform readback: {:?}", &transform_uniform[0..4]);
+            
+            let mut projection_uniform = [0.0f32; 16];
+            gl::GetUniformfv(program, projection_loc, projection_uniform.as_mut_ptr());
+            println!("🔍 Debug - Projection uniform readback: {:?}", &projection_uniform[0..4]);
+            
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                println!("❌ OpenGL error after setting uniforms: 0x{:x}", error);
+            } else {
+                println!("✅ Uniforms set successfully with no errors");
+            }
         }
         
         Ok(())
@@ -171,7 +186,16 @@ impl GlesScenePainter {
         unsafe {
             gl::BindVertexArray(self.vao);
             
+            let mut bound_vao = 0;
+            gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut bound_vao);
+            println!("🔍 Debug - VAO bound for upload: {} (expected: {})", bound_vao, self.vao);
+            
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            
+            let mut bound_vbo = 0;
+            gl::GetIntegerv(gl::ARRAY_BUFFER_BINDING, &mut bound_vbo);
+            println!("🔍 Debug - VBO bound: {} (expected: {})", bound_vbo, self.vbo);
+            
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (vertices.len() * mem::size_of::<Vertex>()) as isize,
@@ -179,13 +203,41 @@ impl GlesScenePainter {
                 gl::DYNAMIC_DRAW,
             );
             
+            let mut buffer_size = 0;
+            gl::GetBufferParameteriv(gl::ARRAY_BUFFER, gl::BUFFER_SIZE, &mut buffer_size);
+            let expected_size = (vertices.len() * mem::size_of::<Vertex>()) as i32;
+            println!("🔍 Debug - VBO size: {} bytes (expected: {} bytes)", buffer_size, expected_size);
+            
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
+            
+            let mut bound_ebo = 0;
+            gl::GetIntegerv(gl::ELEMENT_ARRAY_BUFFER_BINDING, &mut bound_ebo);
+            println!("🔍 Debug - EBO bound: {} (expected: {})", bound_ebo, self.ebo);
+            
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
                 (indices.len() * mem::size_of::<u32>()) as isize,
                 indices.as_ptr() as *const _,
                 gl::DYNAMIC_DRAW,
             );
+            
+            let mut index_buffer_size = 0;
+            gl::GetBufferParameteriv(gl::ELEMENT_ARRAY_BUFFER, gl::BUFFER_SIZE, &mut index_buffer_size);
+            let expected_index_size = (indices.len() * mem::size_of::<u32>()) as i32;
+            println!("🔍 Debug - EBO size: {} bytes (expected: {} bytes)", index_buffer_size, expected_index_size);
+            
+            let mut attr0_enabled = 0;
+            let mut attr1_enabled = 0;
+            gl::GetVertexAttribiv(0, gl::VERTEX_ATTRIB_ARRAY_ENABLED, &mut attr0_enabled);
+            gl::GetVertexAttribiv(1, gl::VERTEX_ATTRIB_ARRAY_ENABLED, &mut attr1_enabled);
+            println!("🔍 Debug - Vertex attributes enabled: attr0={}, attr1={}", attr0_enabled, attr1_enabled);
+            
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                println!("❌ OpenGL error during geometry upload: 0x{:x}", error);
+            } else {
+                println!("✅ Geometry uploaded successfully");
+            }
         }
     }
     
@@ -196,6 +248,24 @@ impl GlesScenePainter {
             let mut current_vao = 0;
             gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut current_vao);
             println!("🔍 Debug - Current VAO binding: {}, expected: {}", current_vao, self.vao);
+            
+            let mut current_program = 0;
+            gl::GetIntegerv(gl::CURRENT_PROGRAM, &mut current_program);
+            println!("🔍 Debug - Current shader program at draw time: {}", current_program);
+            
+            let mut depth_test = 0;
+            gl::GetIntegerv(gl::DEPTH_TEST, &mut depth_test);
+            let mut cull_face = 0;
+            gl::GetIntegerv(gl::CULL_FACE, &mut cull_face);
+            let mut blend = 0;
+            gl::GetIntegerv(gl::BLEND, &mut blend);
+            println!("🔍 Debug - GL State: depth_test={}, cull_face={}, blend={}", depth_test, cull_face, blend);
+            
+            let mut viewport = [0i32; 4];
+            gl::GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
+            println!("🔍 Debug - Viewport: {}x{} at ({}, {})", viewport[2], viewport[3], viewport[0], viewport[1]);
+            
+            println!("🔍 Debug - About to draw {} triangles ({} indices)", count / 3, count);
             
             gl::DrawElements(gl::TRIANGLES, count as i32, gl::UNSIGNED_INT, std::ptr::null());
             

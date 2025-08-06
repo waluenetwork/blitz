@@ -100,11 +100,48 @@ impl WindowRenderer for GlesWindowRenderer {
 
         unsafe {
             gl::Viewport(0, 0, self.width as i32, self.height as i32);
+            
+            let mut viewport = [0i32; 4];
+            gl::GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
+            println!("🔍 Debug - Viewport set to: {}x{} at ({}, {})", viewport[2], viewport[3], viewport[0], viewport[1]);
+            
+            let fb_status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
+            println!("🔍 Debug - Framebuffer status: 0x{:x} (complete=0x{:x})", fb_status, gl::FRAMEBUFFER_COMPLETE);
+            
+            let mut current_fb = 0;
+            gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut current_fb);
+            println!("🔍 Debug - Current framebuffer: {}", current_fb);
+            
+            let mut clear_color = [0.0f32; 4];
+            gl::GetFloatv(gl::COLOR_CLEAR_VALUE, clear_color.as_mut_ptr());
+            println!("🔍 Debug - Clear color: {:?}", clear_color);
+            
             gl::Clear(gl::COLOR_BUFFER_BIT);
+            
+            let mut depth_test = 0;
+            let mut cull_face = 0;
+            let mut blend = 0;
+            let mut scissor_test = 0;
+            gl::GetIntegerv(gl::DEPTH_TEST, &mut depth_test);
+            gl::GetIntegerv(gl::CULL_FACE, &mut cull_face);
+            gl::GetIntegerv(gl::BLEND, &mut blend);
+            gl::GetIntegerv(gl::SCISSOR_TEST, &mut scissor_test);
+            println!("🔍 Debug - GL State before render: depth={}, cull={}, blend={}, scissor={}", 
+                     depth_test, cull_face, blend, scissor_test);
+            
+            if blend != 0 {
+                let mut blend_src = 0;
+                let mut blend_dst = 0;
+                gl::GetIntegerv(gl::BLEND_SRC_ALPHA, &mut blend_src);
+                gl::GetIntegerv(gl::BLEND_DST_ALPHA, &mut blend_dst);
+                println!("🔍 Debug - Blend func: src=0x{:x}, dst=0x{:x}", blend_src, blend_dst);
+            }
             
             let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!("⚠️  OpenGL error before rendering: 0x{:x}", error);
+            } else {
+                println!("✅ Pre-render state validation passed");
             }
             
             println!("🧹 Set viewport to {}x{} and cleared GL buffers", self.width, self.height);
