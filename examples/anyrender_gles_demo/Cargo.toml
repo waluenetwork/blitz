@@ -1,0 +1,15 @@
+[package]
+name = "anyrender_gles_demo"
+version = "0.1.0"
+edition = "2021"
+description = "Comprehensive test demo for anyrender_gles backend"
+
+[dependencies]
+anyrender = { workspace = true }
+anyrender_gles = { workspace = true }
+kurbo = { workspace = true }
+peniko = { workspace = true }
+winit = { workspace = true }
+anyhow = "1.0"
+tracing = { workspace = true }
+tracing-subscriber = "0.3"

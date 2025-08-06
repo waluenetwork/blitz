@@ -19,6 +19,7 @@ members = [
   "apps/readme",
   "apps/bump",
   "wpt/runner",
+  "examples/anyrender_gles_demo",
   "examples/counter",
   "examples/wgpu_texture",
   "examples/egui_demo",
