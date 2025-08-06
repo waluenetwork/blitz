@@ -122,7 +122,8 @@ impl GlesScenePainter {
     }
     
     fn set_transform_uniforms(&self, shader_type: ShaderType) -> anyhow::Result<()> {
-        let _program = self.shader_manager.use_program(shader_type)?;
+        let program = self.shader_manager.use_program(shader_type)?;
+        println!("🔍 Debug - Activated shader program: {} for type: {:?}", program, shader_type);
         
         let transform_matrix = self.affine_to_matrix4(self.current_transform);
         
@@ -137,6 +138,10 @@ impl GlesScenePainter {
             
             gl::UniformMatrix4fv(transform_loc, 1, gl::FALSE, transform_matrix.as_ptr());
             gl::UniformMatrix4fv(projection_loc, 1, gl::FALSE, self.projection_matrix.as_ptr());
+            
+            let mut current_program = 0;
+            gl::GetIntegerv(gl::CURRENT_PROGRAM, &mut current_program);
+            println!("🔍 Debug - Current active program after uniforms: {}", current_program);
         }
         
         Ok(())
