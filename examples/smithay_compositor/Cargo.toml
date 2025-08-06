@@ -1,0 +1,21 @@
+[package]
+name = "smithay_compositor"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish = false
+
+[dependencies]
+# Blitz-Smithay integration
+blitz-smithay = { workspace = true }
+
+# Basic dependencies for demonstration
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Note: Full Smithay dependencies commented out due to system library requirements
+# Uncomment these when libudev-dev and other Wayland system libraries are installed:
+# smithay = "0.3"
+# wayland-server = "0.31" 
+# wayland-protocols = "0.32"
+# winit = { workspace = true }

@@ -22,6 +22,7 @@ members = [
   "examples/wgpu_texture",
   "examples/egui_demo",
   "examples/anyrender",
+  "examples/smithay_compositor",
 ]
 exclude = ["sites"]
 resolver = "2"
