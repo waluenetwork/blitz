@@ -1,0 +1,37 @@
+[package]
+name = "blitz-smithay"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Smithay Wayland compositor integration for Blitz web rendering engine"
+repository = "https://github.com/waluenetwork/blitz"
+authors = ["Devin AI <devin-ai-integration[bot]@users.noreply.github.com>"]
+
+[dependencies]
+# Blitz dependencies
+anyrender = { path = "../anyrender" }
+anyrender_vello = { path = "../anyrender_vello" }
+blitz-traits = { path = "../blitz-traits" }
+
+# Utility dependencies
+tracing = { workspace = true }
+thiserror = "1.0"
+kurbo = { workspace = true }
+
+# Memory and collections
+lru = "0.12"
+
+# NOTE: Smithay dependencies commented out due to missing system libraries
+# These will be uncommented once the environment has the required Wayland dev packages:
+# smithay = { version = "0.3", features = ["backend_drm", "backend_gbm", "renderer_gl", "wayland_frontend"] }
+# wayland-server = "0.31"
+# drm = "0.12"
+# gbm = "0.15"
+# egl = "0.2"
+# wgpu = { workspace = true }
+# cgmath = "0.18"
+# indexmap = "2.0"
+# tokio = { version = "1.0", features = ["full"] }
+
+[dev-dependencies]
+tracing-subscriber = "0.3"
