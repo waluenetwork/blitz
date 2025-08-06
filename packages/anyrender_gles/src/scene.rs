@@ -39,6 +39,17 @@ struct LayerState {
 
 impl GlesScenePainter {
     pub fn new(width: u32, height: u32) -> anyhow::Result<Self> {
+        unsafe {
+            let version = gl::GetString(gl::VERSION);
+            let renderer = gl::GetString(gl::RENDERER);
+            if !version.is_null() && !renderer.is_null() {
+                let version_str = std::ffi::CStr::from_ptr(version as *const i8).to_string_lossy();
+                let renderer_str = std::ffi::CStr::from_ptr(renderer as *const i8).to_string_lossy();
+                println!("🔍 Debug - OpenGL Version: {}", version_str);
+                println!("🔍 Debug - OpenGL Renderer: {}", renderer_str);
+            }
+        }
+        
         let shader_manager = ShaderManager::new()?;
         let tessellator = GlesTessellator::new();
         let text_renderer = GlesTextRenderer::new()?;
@@ -176,14 +187,21 @@ impl GlesScenePainter {
     fn draw_elements(&self, count: usize) {
         unsafe {
             gl::BindVertexArray(self.vao);
+            
+            let mut current_vao = 0;
+            gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut current_vao);
+            println!("🔍 Debug - Current VAO binding: {}, expected: {}", current_vao, self.vao);
+            
             gl::DrawElements(gl::TRIANGLES, count as i32, gl::UNSIGNED_INT, std::ptr::null());
             
             let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                println!("❌ OpenGL error after DrawElements: 0x{:x}", error);
-            } else {
+            if error == gl::NO_ERROR {
                 println!("✅ DrawElements completed successfully for {} indices", count);
+            } else {
+                println!("❌ OpenGL error in DrawElements: 0x{:x}", error);
             }
+            
+            gl::Flush();
         }
     }
     

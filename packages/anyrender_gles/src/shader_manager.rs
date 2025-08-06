@@ -55,12 +55,19 @@ impl ShaderManager {
 
     fn create_shader_program(&self, vertex_source: &str, fragment_source: &str) -> Result<GLuint> {
         unsafe {
+            println!("🔍 Debug - Compiling vertex shader...");
             let vertex_shader = self.compile_shader(vertex_source, gl::VERTEX_SHADER)?;
+            println!("✅ Vertex shader compiled successfully");
+            
+            println!("🔍 Debug - Compiling fragment shader...");
             let fragment_shader = self.compile_shader(fragment_source, gl::FRAGMENT_SHADER)?;
+            println!("✅ Fragment shader compiled successfully");
 
             let program = gl::CreateProgram();
             gl::AttachShader(program, vertex_shader);
             gl::AttachShader(program, fragment_shader);
+            
+            println!("🔍 Debug - Linking shader program...");
             gl::LinkProgram(program);
 
             let mut success = 0;
@@ -80,6 +87,7 @@ impl ShaderManager {
                     String::from_utf8_lossy(&buffer)
                 ));
             }
+            println!("✅ Shader program linked successfully");
 
             gl::DeleteShader(vertex_shader);
             gl::DeleteShader(fragment_shader);

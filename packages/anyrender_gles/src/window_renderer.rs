@@ -101,6 +101,12 @@ impl WindowRenderer for GlesWindowRenderer {
         unsafe {
             gl::Viewport(0, 0, self.width as i32, self.height as i32);
             gl::Clear(gl::COLOR_BUFFER_BIT);
+            
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                println!("⚠️  OpenGL error before rendering: 0x{:x}", error);
+            }
+            
             println!("🧹 Set viewport to {}x{} and cleared GL buffers", self.width, self.height);
         }
 
