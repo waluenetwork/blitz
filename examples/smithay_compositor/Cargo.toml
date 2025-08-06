@@ -13,13 +13,17 @@ blitz-dom = { workspace = true }
 blitz-html = { workspace = true }
 blitz-shell = { workspace = true }
 
-# Smithay dependencies (commented out due to system library requirements)
-# Uncomment these when libudev-dev and other Wayland system libraries are installed:
-# smithay = "0.3"
-# wayland-server = "0.31"
-# wayland-protocols = "0.32"
+# Smithay dependencies - conditional compilation based on system library availability
+# Enable with: cargo build --features="smithay-backend"
+smithay = { version = "0.3", optional = true }
+wayland-server = { version = "0.31", optional = true }
+wayland-protocols = { version = "0.32", optional = true }
 
 # Utility dependencies
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 wgpu = { workspace = true }
+
+[features]
+default = []
+smithay-backend = ["smithay", "wayland-server", "wayland-protocols"]

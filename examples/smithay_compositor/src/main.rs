@@ -76,9 +76,11 @@ static HTML: &str = r#"
                 <h2>Smithay-Blitz Compositor</h2>
                 <p>Interactive Wayland compositor using Blitz rendering</p>
                 <p>Status: <span class="status">Running</span></p>
-                <p>Surfaces: <span class="status">0</span></p>
+                <p>Wayland Socket: <span class="status">wayland-blitz-*</span></p>
+                <p>Connected Clients: <span class="status" id="client-count">0</span></p>
+                <p>Active Surfaces: <span class="status" id="surface-count">0</span></p>
                 <p>Backend: <span class="status">WGPU + Vello</span></p>
-                <p><small>This demonstrates Smithay compositor integration with Blitz's AnyRender system</small></p>
+                <p><small>Watch the canvas background change as mock surfaces are created!</small></p>
             </div>
             <header>
                 <h1>Smithay-Blitz Interactive Compositor</h1>
@@ -94,10 +96,32 @@ static HTML: &str = r#"
 /*
  * FULL SMITHAY COMPOSITOR IMPLEMENTATION
  * 
- * Uncomment this section when system dependencies are installed:
- * sudo apt-get install libudev-dev pkg-config libwayland-dev
+ * This example currently uses mock simulation to demonstrate the integration pattern.
+ * To enable full Wayland compositor functionality:
  * 
- * Also uncomment the full dependencies in Cargo.toml
+ * 1. Install system dependencies:
+ *    sudo apt-get install libudev-dev pkg-config libwayland-dev libxkbcommon-dev
+ * 
+ * 2. Uncomment Smithay dependencies in Cargo.toml:
+ *    smithay = "0.3"
+ *    wayland-server = "0.31"
+ *    wayland-protocols = "0.32"
+ * 
+ * 3. Replace mock implementation with actual Smithay protocol handlers:
+ *    - CompositorHandler for surface management
+ *    - XdgShellHandler for window management  
+ *    - ShmHandler for shared memory buffers
+ *    - SeatHandler for input handling
+ * 
+ * 4. Integrate render_elements_from_surface_tree() for actual surface rendering
+ * 
+ * 5. Add Display::dispatch_clients() to the render loop
+ * 
+ * Key integration points:
+ * - ListeningSocket::bind() for client connections
+ * - WaylandSurfaceRenderElement for surface rendering
+ * - CustomPaintCtx::register_texture() for WGPU integration
+ * - BlitzApplication event loop coordination
  */
 
 /*
