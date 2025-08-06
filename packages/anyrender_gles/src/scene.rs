@@ -39,16 +39,6 @@ struct LayerState {
 
 impl GlesScenePainter {
     pub fn new(width: u32, height: u32) -> anyhow::Result<Self> {
-        unsafe {
-            let version = gl::GetString(gl::VERSION);
-            let renderer = gl::GetString(gl::RENDERER);
-            if !version.is_null() && !renderer.is_null() {
-                let version_str = std::ffi::CStr::from_ptr(version as *const i8).to_string_lossy();
-                let renderer_str = std::ffi::CStr::from_ptr(renderer as *const i8).to_string_lossy();
-                println!("🔍 Debug - OpenGL Version: {}", version_str);
-                println!("🔍 Debug - OpenGL Renderer: {}", renderer_str);
-            }
-        }
         
         let shader_manager = ShaderManager::new()?;
         let tessellator = GlesTessellator::new();
@@ -87,10 +77,6 @@ impl GlesScenePainter {
             );
             gl::EnableVertexAttribArray(1);
             
-            println!("🔍 Debug - VAO setup complete. Vertex attributes:");
-            println!("  - Attribute 0: 2 floats (position) at offset 0, stride {}", mem::size_of::<Vertex>());
-            println!("  - Attribute 1: 4 floats (color) at offset {}, stride {}", 2 * mem::size_of::<f32>(), mem::size_of::<Vertex>());
-            
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
             gl::BindVertexArray(0);
         }
@@ -122,41 +108,16 @@ impl GlesScenePainter {
     }
     
     fn set_transform_uniforms(&self, shader_type: ShaderType) -> anyhow::Result<()> {
-        let program = self.shader_manager.use_program(shader_type)?;
-        println!("🔍 Debug - Activated shader program: {} for type: {:?}", program, shader_type);
+        let _program = self.shader_manager.use_program(shader_type)?;
         
         let transform_matrix = self.affine_to_matrix4(self.current_transform);
-        
-        println!("🔍 Debug - Transform matrix: {:?}", transform_matrix);
-        println!("🔍 Debug - Projection matrix: {:?}", self.projection_matrix);
         
         unsafe {
             let transform_loc = self.shader_manager.get_uniform_location(shader_type, "u_transform")?;
             let projection_loc = self.shader_manager.get_uniform_location(shader_type, "u_projection")?;
             
-            println!("🔍 Debug - Uniform locations: transform={}, projection={}", transform_loc, projection_loc);
-            
             gl::UniformMatrix4fv(transform_loc, 1, gl::FALSE, transform_matrix.as_ptr());
             gl::UniformMatrix4fv(projection_loc, 1, gl::FALSE, self.projection_matrix.as_ptr());
-            
-            let mut current_program = 0;
-            gl::GetIntegerv(gl::CURRENT_PROGRAM, &mut current_program);
-            println!("🔍 Debug - Current active program after uniforms: {}", current_program);
-            
-            let mut transform_uniform = [0.0f32; 16];
-            gl::GetUniformfv(program, transform_loc, transform_uniform.as_mut_ptr());
-            println!("🔍 Debug - Transform uniform readback: {:?}", &transform_uniform[0..4]);
-            
-            let mut projection_uniform = [0.0f32; 16];
-            gl::GetUniformfv(program, projection_loc, projection_uniform.as_mut_ptr());
-            println!("🔍 Debug - Projection uniform readback: {:?}", &projection_uniform[0..4]);
-            
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                println!("❌ OpenGL error after setting uniforms: 0x{:x}", error);
-            } else {
-                println!("✅ Uniforms set successfully with no errors");
-            }
         }
         
         Ok(())
@@ -173,28 +134,9 @@ impl GlesScenePainter {
     }
     
     fn upload_geometry(&self, vertices: &[Vertex], indices: &[u32]) {
-        if !vertices.is_empty() {
-            println!("🔍 Debug - First vertex: pos={:?}, color={:?}", vertices[0].position, vertices[0].color);
-            if vertices.len() > 1 {
-                println!("🔍 Debug - Second vertex: pos={:?}, color={:?}", vertices[1].position, vertices[1].color);
-            }
-        }
-        
-        println!("🔍 Debug - Vertex struct size: {} bytes", mem::size_of::<Vertex>());
-        println!("🔍 Debug - Uploading {} vertices, {} indices", vertices.len(), indices.len());
-        
         unsafe {
             gl::BindVertexArray(self.vao);
-            
-            let mut bound_vao = 0;
-            gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut bound_vao);
-            println!("🔍 Debug - VAO bound for upload: {} (expected: {})", bound_vao, self.vao);
-            
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            
-            let mut bound_vbo = 0;
-            gl::GetIntegerv(gl::ARRAY_BUFFER_BINDING, &mut bound_vbo);
-            println!("🔍 Debug - VBO bound: {} (expected: {})", bound_vbo, self.vbo);
             
             gl::BufferData(
                 gl::ARRAY_BUFFER,
@@ -203,16 +145,7 @@ impl GlesScenePainter {
                 gl::DYNAMIC_DRAW,
             );
             
-            let mut buffer_size = 0;
-            gl::GetBufferParameteriv(gl::ARRAY_BUFFER, gl::BUFFER_SIZE, &mut buffer_size);
-            let expected_size = (vertices.len() * mem::size_of::<Vertex>()) as i32;
-            println!("🔍 Debug - VBO size: {} bytes (expected: {} bytes)", buffer_size, expected_size);
-            
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
-            
-            let mut bound_ebo = 0;
-            gl::GetIntegerv(gl::ELEMENT_ARRAY_BUFFER_BINDING, &mut bound_ebo);
-            println!("🔍 Debug - EBO bound: {} (expected: {})", bound_ebo, self.ebo);
             
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
@@ -220,68 +153,17 @@ impl GlesScenePainter {
                 indices.as_ptr() as *const _,
                 gl::DYNAMIC_DRAW,
             );
-            
-            let mut index_buffer_size = 0;
-            gl::GetBufferParameteriv(gl::ELEMENT_ARRAY_BUFFER, gl::BUFFER_SIZE, &mut index_buffer_size);
-            let expected_index_size = (indices.len() * mem::size_of::<u32>()) as i32;
-            println!("🔍 Debug - EBO size: {} bytes (expected: {} bytes)", index_buffer_size, expected_index_size);
-            
-            let mut attr0_enabled = 0;
-            let mut attr1_enabled = 0;
-            gl::GetVertexAttribiv(0, gl::VERTEX_ATTRIB_ARRAY_ENABLED, &mut attr0_enabled);
-            gl::GetVertexAttribiv(1, gl::VERTEX_ATTRIB_ARRAY_ENABLED, &mut attr1_enabled);
-            println!("🔍 Debug - Vertex attributes enabled: attr0={}, attr1={}", attr0_enabled, attr1_enabled);
-            
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                println!("❌ OpenGL error during geometry upload: 0x{:x}", error);
-            } else {
-                println!("✅ Geometry uploaded successfully");
-            }
         }
     }
     
     fn draw_elements(&self, count: usize) {
         unsafe {
             gl::BindVertexArray(self.vao);
-            
-            let mut current_vao = 0;
-            gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut current_vao);
-            println!("🔍 Debug - Current VAO binding: {}, expected: {}", current_vao, self.vao);
-            
-            let mut current_program = 0;
-            gl::GetIntegerv(gl::CURRENT_PROGRAM, &mut current_program);
-            println!("🔍 Debug - Current shader program at draw time: {}", current_program);
-            
-            let mut depth_test = 0;
-            gl::GetIntegerv(gl::DEPTH_TEST, &mut depth_test);
-            let mut cull_face = 0;
-            gl::GetIntegerv(gl::CULL_FACE, &mut cull_face);
-            let mut blend = 0;
-            gl::GetIntegerv(gl::BLEND, &mut blend);
-            println!("🔍 Debug - GL State: depth_test={}, cull_face={}, blend={}", depth_test, cull_face, blend);
-            
-            let mut viewport = [0i32; 4];
-            gl::GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
-            println!("🔍 Debug - Viewport: {}x{} at ({}, {})", viewport[2], viewport[3], viewport[0], viewport[1]);
-            
-            println!("🔍 Debug - About to draw {} triangles ({} indices)", count / 3, count);
-            
             gl::DrawElements(gl::TRIANGLES, count as i32, gl::UNSIGNED_INT, std::ptr::null());
-            
-            let error = gl::GetError();
-            if error == gl::NO_ERROR {
-                println!("✅ DrawElements completed successfully for {} indices", count);
-            } else {
-                println!("❌ OpenGL error in DrawElements: 0x{:x}", error);
-            }
-            
-            gl::Flush();
         }
     }
     
     fn render_text_quads(&self, quads: &[crate::text_renderer::TextQuad]) {
-        use crate::text_renderer::TextQuad;
         
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
@@ -317,11 +199,8 @@ impl GlesScenePainter {
         }
         
         if vertices.is_empty() || indices.is_empty() {
-            println!("⚪ No text vertices/indices to render");
             return;
         }
-        
-        println!("🔤 Rendering text with {} vertices, {} indices", vertices.len() / 8, indices.len());
         
         unsafe {
             gl::BindVertexArray(self.vao);
@@ -362,12 +241,6 @@ impl GlesScenePainter {
             
             gl::DrawElements(gl::TRIANGLES, indices.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
             
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                println!("❌ OpenGL error after text DrawElements: 0x{:x}", error);
-            } else {
-                println!("✅ Text DrawElements completed successfully for {} indices", indices.len());
-            }
         }
     }
     
@@ -484,36 +357,19 @@ impl PaintScene for GlesScenePainter {
         shape.path_elements(0.1).for_each(|el| path.push(el));
         
         let buffers = match self.tessellator.tessellate_fill(&path, color) {
-            Ok(buffers) => {
-                println!("✅ Tessellation successful: {} vertices, {} indices", 
-                    buffers.vertices.len(), buffers.indices.len());
-                
-                if !buffers.vertices.is_empty() {
-                    let min_x = buffers.vertices.iter().map(|v| v.position[0]).fold(f32::INFINITY, f32::min);
-                    let max_x = buffers.vertices.iter().map(|v| v.position[0]).fold(f32::NEG_INFINITY, f32::max);
-                    let min_y = buffers.vertices.iter().map(|v| v.position[1]).fold(f32::INFINITY, f32::min);
-                    let max_y = buffers.vertices.iter().map(|v| v.position[1]).fold(f32::NEG_INFINITY, f32::max);
-                    println!("🔍 Debug - Vertex coordinate ranges: X=[{:.2}, {:.2}], Y=[{:.2}, {:.2}]", min_x, max_x, min_y, max_y);
-                }
-                
-                buffers
-            },
+            Ok(buffers) => buffers,
             Err(e) => {
-                println!("❌ Tessellation failed: {:?}", e);
+                tracing::error!("Tessellation failed: {}", e);
                 return;
-            },
+            }
         };
         
         let old_transform = self.current_transform;
         self.current_transform = self.current_transform * transform;
         
         if self.set_transform_uniforms(ShaderType::Fill).is_ok() {
-            println!("✅ Set transform uniforms successfully");
             self.upload_geometry(&buffers.vertices, &buffers.indices);
             self.draw_elements(buffers.indices.len());
-            println!("✅ Drew {} elements", buffers.indices.len());
-        } else {
-            println!("❌ Failed to set transform uniforms");
         }
         
         self.current_transform = old_transform;
@@ -587,15 +443,17 @@ impl PaintScene for GlesScenePainter {
         self.current_transform = self.current_transform * transform;
         
         if self.set_transform_uniforms(ShaderType::Fill).is_ok() {
-            println!("✅ Set transform uniforms successfully for box shadow");
             self.upload_geometry(&buffers.vertices, &buffers.indices);
             self.draw_elements(buffers.indices.len());
-            println!("✅ Drew {} elements for box shadow", buffers.indices.len());
-        } else {
-            println!("❌ Failed to set transform uniforms for box shadow");
         }
         
         self.current_transform = old_transform;
+    }
+}
+
+impl GlesScenePainter {
+    pub fn use_texture_shader(&self) -> anyhow::Result<GLuint> {
+        self.shader_manager.use_program(ShaderType::Texture)
     }
 }
 

@@ -75,10 +75,7 @@ impl WindowRenderer for GlesWindowRenderer {
     }
 
     fn render<F: FnOnce(&mut Self::ScenePainter<'_>)>(&mut self, draw_fn: F) {
-        println!("🖼️  GlesWindowRenderer::render() called with size {}x{}", self.width, self.height);
-        
         let Some(ref context) = self.gl_context else {
-            println!("❌ No GL context available");
             return;
         };
 
@@ -87,80 +84,105 @@ impl WindowRenderer for GlesWindowRenderer {
             return;
         }
 
+        let mut framebuffer = 0;
+        let mut color_texture = 0;
+        let mut presentation_vao = 0;
+        let mut presentation_vbo = 0;
+        
+        unsafe {
+            gl::GenTextures(1, &mut color_texture);
+            gl::BindTexture(gl::TEXTURE_2D, color_texture);
+            gl::TexImage2D(
+                gl::TEXTURE_2D, 0, gl::RGBA as i32,
+                self.width as i32, self.height as i32, 0,
+                gl::RGBA, gl::UNSIGNED_BYTE, std::ptr::null()
+            );
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
+            
+            gl::GenFramebuffers(1, &mut framebuffer);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, framebuffer);
+            gl::FramebufferTexture2D(
+                gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D, color_texture, 0
+            );
+            
+            let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
+            if status != gl::FRAMEBUFFER_COMPLETE {
+                tracing::error!("Intermediate framebuffer not complete: 0x{:x}", status);
+                gl::DeleteFramebuffers(1, &framebuffer);
+                gl::DeleteTextures(1, &color_texture);
+                return;
+            }
+            
+            gl::Viewport(0, 0, self.width as i32, self.height as i32);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+
         let mut scene_painter = match GlesScenePainter::new(self.width, self.height) {
-            Ok(painter) => {
-                println!("✅ Created GlesScenePainter successfully");
-                painter
-            },
+            Ok(painter) => painter,
             Err(e) => {
                 tracing::error!("Failed to create scene painter: {}", e);
+                unsafe {
+                    gl::DeleteFramebuffers(1, &framebuffer);
+                    gl::DeleteTextures(1, &color_texture);
+                }
                 return;
             }
         };
 
+        draw_fn(&mut scene_painter);
+
         unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
             gl::Viewport(0, 0, self.width as i32, self.height as i32);
-            
-            let mut viewport = [0i32; 4];
-            gl::GetIntegerv(gl::VIEWPORT, viewport.as_mut_ptr());
-            println!("🔍 Debug - Viewport set to: {}x{} at ({}, {})", viewport[2], viewport[3], viewport[0], viewport[1]);
-            
-            let fb_status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
-            println!("🔍 Debug - Framebuffer status: 0x{:x} (complete=0x{:x})", fb_status, gl::FRAMEBUFFER_COMPLETE);
-            
-            let mut current_fb = 0;
-            gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut current_fb);
-            println!("🔍 Debug - Current framebuffer: {}", current_fb);
-            
-            let mut clear_color = [0.0f32; 4];
-            gl::GetFloatv(gl::COLOR_CLEAR_VALUE, clear_color.as_mut_ptr());
-            println!("🔍 Debug - Clear color: {:?}", clear_color);
-            
             gl::Clear(gl::COLOR_BUFFER_BIT);
             
-            let mut depth_test = 0;
-            let mut cull_face = 0;
-            let mut blend = 0;
-            let mut scissor_test = 0;
-            gl::GetIntegerv(gl::DEPTH_TEST, &mut depth_test);
-            gl::GetIntegerv(gl::CULL_FACE, &mut cull_face);
-            gl::GetIntegerv(gl::BLEND, &mut blend);
-            gl::GetIntegerv(gl::SCISSOR_TEST, &mut scissor_test);
-            println!("🔍 Debug - GL State before render: depth={}, cull={}, blend={}, scissor={}", 
-                     depth_test, cull_face, blend, scissor_test);
+            let quad_vertices: [f32; 16] = [
+                -1.0, -1.0,  0.0, 1.0,  // bottom-left
+                 1.0, -1.0,  1.0, 1.0,  // bottom-right
+                 1.0,  1.0,  1.0, 0.0,  // top-right
+                -1.0,  1.0,  0.0, 0.0,  // top-left
+            ];
             
-            if blend != 0 {
-                let mut blend_src = 0;
-                let mut blend_dst = 0;
-                gl::GetIntegerv(gl::BLEND_SRC_ALPHA, &mut blend_src);
-                gl::GetIntegerv(gl::BLEND_DST_ALPHA, &mut blend_dst);
-                println!("🔍 Debug - Blend func: src=0x{:x}, dst=0x{:x}", blend_src, blend_dst);
+            gl::GenVertexArrays(1, &mut presentation_vao);
+            gl::GenBuffers(1, &mut presentation_vbo);
+            
+            gl::BindVertexArray(presentation_vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, presentation_vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (quad_vertices.len() * std::mem::size_of::<f32>()) as isize,
+                quad_vertices.as_ptr() as *const _,
+                gl::STATIC_DRAW,
+            );
+            
+            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 4 * std::mem::size_of::<f32>() as i32, std::ptr::null());
+            gl::EnableVertexAttribArray(0);
+            
+            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, 4 * std::mem::size_of::<f32>() as i32, (2 * std::mem::size_of::<f32>()) as *const _);
+            gl::EnableVertexAttribArray(1);
+            
+            if let Ok(program) = scene_painter.use_texture_shader() {
+                gl::UseProgram(program);
+                gl::BindTexture(gl::TEXTURE_2D, color_texture);
+                gl::Uniform1i(gl::GetUniformLocation(program, b"u_texture\0".as_ptr() as *const i8), 0);
+                
+                gl::DrawArrays(gl::TRIANGLE_FAN, 0, 4);
             }
             
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                println!("⚠️  OpenGL error before rendering: 0x{:x}", error);
-            } else {
-                println!("✅ Pre-render state validation passed");
-            }
-            
-            println!("🧹 Set viewport to {}x{} and cleared GL buffers", self.width, self.height);
-        }
-
-        println!("🎨 Calling draw function...");
-        draw_fn(&mut scene_painter);
-        println!("🎨 Draw function completed");
-
-        unsafe {
             gl::Finish();
             
-            gl::Flush();
+            gl::DeleteVertexArrays(1, &presentation_vao);
+            gl::DeleteBuffers(1, &presentation_vbo);
+            gl::DeleteFramebuffers(1, &framebuffer);
+            gl::DeleteTextures(1, &color_texture);
         }
         
         if let Err(e) = context.swap_buffers() {
             tracing::error!("Failed to swap buffers: {}", e);
-        } else {
-            println!("🔄 Swapped GL buffers successfully - content should now be visible");
         }
     }
 

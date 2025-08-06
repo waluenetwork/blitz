@@ -41,7 +41,6 @@ impl GlesTextRenderer {
         match Font::from_bytes(EMBEDDED_FONT, FontSettings::default()) {
             Ok(font) => {
                 self.default_font = Some(font);
-                tracing::debug!("Loaded embedded font for text rendering");
                 Ok(())
             }
             Err(e) => {
@@ -53,7 +52,6 @@ impl GlesTextRenderer {
     
     pub fn render_text(&mut self, text: &str, font_size: f32, position: Point, color: [f32; 4]) -> Result<Vec<TextQuad>> {
         if self.font_cache.is_empty() && self.default_font.is_none() {
-            tracing::debug!("Skipping text rendering - no fonts available");
             return Ok(Vec::new());
         }
         
