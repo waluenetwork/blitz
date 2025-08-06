@@ -1,61 +1,28 @@
-//! 
-//! 
-//! 
-
-use blitz_smithay::{BlitzSmithayRenderer, BlitzSmithayError, ObjectId, BlitzFramebuffer, BlitzTexture};
+use anyrender_vello::VelloWindowRenderer;
+use blitz_dom::{qual_name, DocumentConfig};
+use blitz_html::HtmlDocument;
+use blitz_shell::{create_default_event_loop, BlitzApplication, BlitzShellEvent, WindowConfig};
 use tracing::debug;
 
-struct SmithayCompositorDemo {
-    blitz_renderer: BlitzSmithayRenderer,
-    surface_count: u32,
-}
+mod smithay_paint_source;
+use smithay_paint_source::SmithayPaintSource;
 
-impl SmithayCompositorDemo {
-    fn new() -> Result<Self, BlitzSmithayError> {
-        debug!("DEBUG: Creating SmithayCompositorDemo");
-        
-        let blitz_renderer = BlitzSmithayRenderer::new()?;
-        debug!("DEBUG: BlitzSmithayRenderer initialized successfully");
-        
-        Ok(Self {
-            blitz_renderer,
-            surface_count: 0,
-        })
-    }
-    
-    fn simulate_surface_creation(&mut self) -> Result<(), BlitzSmithayError> {
-        debug!("DEBUG: Simulating Wayland surface creation");
-        
-        let surface_id = ObjectId::new();
-        self.surface_count += 1;
-        
-        debug!("DEBUG: Created surface {:?} (total surfaces: {})", surface_id, self.surface_count);
-        
-        let texture = self.blitz_renderer.create_texture(800, 600, "RGBA8888".to_string())?;
-        debug!("DEBUG: Created texture {:?} for surface", texture.id());
-        
-        Ok(())
-    }
-    
-    fn simulate_frame_render(&mut self) -> Result<(), BlitzSmithayError> {
-        debug!("DEBUG: Simulating frame render");
-        
-        let target_texture = BlitzTexture::new(1920, 1080, "RGBA8888".to_string());
-        let framebuffer = BlitzFramebuffer::new(target_texture);
-        
-        debug!("DEBUG: Created framebuffer with dimensions {:?}", framebuffer.dimensions());
-        
-        let frame = self.blitz_renderer.render_frame(framebuffer)?;
-        debug!("DEBUG: Frame rendered successfully");
-        
-        debug!("DEBUG: Simulated surface rendering (surface_manager is private)");
-        
-        Ok(())
-    }
-}
+static STYLES: &str = r#"
+    body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #f0f0f0; }
+    #main { max-width: 1200px; margin: 0 auto; }
+    #overlay { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.9); 
+               padding: 15px; border-radius: 8px; z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    #canvas-container { width: 100%; height: 600px; border: 2px solid #333; 
+                       border-radius: 8px; overflow: hidden; margin-top: 20px; }
+    #compositor-canvas { width: 100%; height: 100%; }
+    h1 { color: #333; text-align: center; margin-bottom: 20px; }
+    h2 { color: #666; margin-top: 0; }
+    p { margin: 8px 0; }
+    .status { font-weight: bold; color: #2d5a27; }
+"#;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    debug!("DEBUG: Starting Smithay-Blitz compositor example (simplified version)");
+    debug!("DEBUG: Starting interactive Smithay-Blitz compositor example");
     
     if let Ok(env_filter) = tracing_subscriber::EnvFilter::try_from_default_env() {
         tracing_subscriber::fmt().with_env_filter(env_filter).init();
@@ -63,33 +30,66 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing_subscriber::fmt().init();
     }
 
-    run_demo()
+    launch_interactive_compositor()
 }
 
-fn run_demo() -> Result<(), Box<dyn std::error::Error>> {
-    debug!("DEBUG: Initializing Smithay-Blitz integration demo");
+pub fn launch_interactive_compositor() -> Result<(), Box<dyn std::error::Error>> {
+    debug!("DEBUG: Initializing interactive compositor with BlitzApplication");
     
-    let mut demo = SmithayCompositorDemo::new()?;
-    debug!("DEBUG: Demo compositor created successfully");
+    let mut renderer = VelloWindowRenderer::new();
     
-    debug!("DEBUG: Simulating Wayland compositor operations");
+    let smithay_paint_source = Box::new(SmithayPaintSource::new()?);
+    let paint_source_id = renderer.register_custom_paint_source(smithay_paint_source);
+    debug!("DEBUG: Registered SmithayPaintSource with ID: {}", paint_source_id);
     
-    for i in 0..3 {
-        debug!("DEBUG: Creating surface {}", i + 1);
-        demo.simulate_surface_creation()?;
-    }
+    let html = HTML.replace("{{STYLES_PLACEHOLDER}}", STYLES);
+    let mut doc = HtmlDocument::from_html(&html, DocumentConfig::default());
     
-    for frame in 0..5 {
-        debug!("DEBUG: Rendering frame {}", frame + 1);
-        demo.simulate_frame_render()?;
-    }
+    let canvas_node_id = doc.query_selector("#compositor-canvas").unwrap().unwrap();
+    let src_attr = qual_name!("src");
+    let src_str = paint_source_id.to_string();
+    doc.mutate().set_attribute(canvas_node_id, src_attr, &src_str);
+    debug!("DEBUG: Canvas element configured with paint source ID");
     
-    debug!("DEBUG: Demo completed successfully");
-    debug!("DEBUG: This demonstrates the basic Blitz-Smithay integration");
-    debug!("DEBUG: To run a full Wayland compositor, install system dependencies and uncomment full implementation");
+    let event_loop = create_default_event_loop::<BlitzShellEvent>();
+    let mut application = BlitzApplication::new(event_loop.create_proxy());
+    let window = WindowConfig::new(Box::new(doc), renderer);
+    application.add_window(window);
+    
+    debug!("DEBUG: Starting BlitzApplication event loop");
+    event_loop.run_app(&mut application).unwrap();
     
     Ok(())
 }
+
+static HTML: &str = r#"
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style type="text/css">
+            {{STYLES_PLACEHOLDER}}
+        </style>
+    </head>
+    <body>
+        <main id="main">
+            <div id="overlay">
+                <h2>Smithay-Blitz Compositor</h2>
+                <p>Interactive Wayland compositor using Blitz rendering</p>
+                <p>Status: <span class="status">Running</span></p>
+                <p>Surfaces: <span class="status">0</span></p>
+                <p>Backend: <span class="status">WGPU + Vello</span></p>
+                <p><small>This demonstrates Smithay compositor integration with Blitz's AnyRender system</small></p>
+            </div>
+            <header>
+                <h1>Smithay-Blitz Interactive Compositor</h1>
+            </header>
+            <div id="canvas-container">
+                <canvas id="compositor-canvas"></canvas>
+            </div>
+        </main>
+    </body>
+    </html>
+"#;
 
 /*
  * FULL SMITHAY COMPOSITOR IMPLEMENTATION

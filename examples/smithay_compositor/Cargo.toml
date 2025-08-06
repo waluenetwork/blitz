@@ -6,16 +6,20 @@ license.workspace = true
 publish = false
 
 [dependencies]
-# Blitz-Smithay integration
+# Blitz dependencies
 blitz-smithay = { workspace = true }
+anyrender_vello = { workspace = true }
+blitz-dom = { workspace = true }
+blitz-html = { workspace = true }
+blitz-shell = { workspace = true }
 
-# Basic dependencies for demonstration
-tracing = { workspace = true }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-# Note: Full Smithay dependencies commented out due to system library requirements
+# Smithay dependencies (commented out due to system library requirements)
 # Uncomment these when libudev-dev and other Wayland system libraries are installed:
 # smithay = "0.3"
-# wayland-server = "0.31" 
+# wayland-server = "0.31"
 # wayland-protocols = "0.32"
-# winit = { workspace = true }
+
+# Utility dependencies
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+wgpu = { workspace = true }
