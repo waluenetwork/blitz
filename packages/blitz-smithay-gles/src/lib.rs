@@ -71,7 +71,15 @@ impl BlitzSmithayIntegration {
         let mut context = self.context_bridge.lock().unwrap();
         context.make_current()?;
         
+        unsafe {
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+        
         self.surface_manager.render_surfaces()?;
+        
+        unsafe {
+            gl::Finish();
+        }
         
         context.swap_buffers()?;
         

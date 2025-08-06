@@ -153,12 +153,14 @@ impl WindowRenderer for GlesWindowRenderer {
 
         unsafe {
             gl::Finish();
+            
+            gl::Flush();
         }
         
         if let Err(e) = context.swap_buffers() {
             tracing::error!("Failed to swap buffers: {}", e);
         } else {
-            println!("🔄 Swapped GL buffers successfully");
+            println!("🔄 Swapped GL buffers successfully - content should now be visible");
         }
     }
 
