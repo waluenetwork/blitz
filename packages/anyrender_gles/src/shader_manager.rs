@@ -13,6 +13,7 @@ pub enum ShaderType {
     Stroke,
     Texture,
     Text,
+    Presentation,
 }
 
 impl ShaderManager {
@@ -49,6 +50,12 @@ impl ShaderManager {
             TEXT_FRAGMENT_SHADER,
         )?;
         self.programs.insert(ShaderType::Text, text_program);
+
+        let presentation_program = self.create_shader_program(
+            PRESENTATION_VERTEX_SHADER,
+            PRESENTATION_FRAGMENT_SHADER,
+        )?;
+        self.programs.insert(ShaderType::Presentation, presentation_program);
 
         Ok(())
     }
@@ -279,5 +286,34 @@ out vec4 fragColor;
 void main() {
     float alpha = texture(u_texture, v_texcoord).r;
     fragColor = vec4(v_color.rgb, v_color.a * alpha);
+}
+"#;
+
+const PRESENTATION_VERTEX_SHADER: &str = r#"
+#version 300 es
+precision mediump float;
+
+layout(location = 0) in vec2 a_position;
+layout(location = 1) in vec2 a_texcoord;
+
+out vec2 v_texcoord;
+
+void main() {
+    gl_Position = vec4(a_position, 0.0, 1.0);
+    v_texcoord = a_texcoord;
+}
+"#;
+
+const PRESENTATION_FRAGMENT_SHADER: &str = r#"
+#version 300 es
+precision mediump float;
+
+in vec2 v_texcoord;
+uniform sampler2D u_texture;
+
+out vec4 fragColor;
+
+void main() {
+    fragColor = texture(u_texture, v_texcoord);
 }
 "#;

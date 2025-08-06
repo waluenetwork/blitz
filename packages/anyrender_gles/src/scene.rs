@@ -265,7 +265,6 @@ impl GlesScenePainter {
 
 impl PaintScene for GlesScenePainter {
     fn reset(&mut self) {
-        println!("🔄 GlesScenePainter::reset() called");
         self.transform_stack.clear();
         self.current_transform = Affine::IDENTITY;
         self.layer_stack.clear();
@@ -351,7 +350,6 @@ impl PaintScene for GlesScenePainter {
             Paint::Custom(_) => [1.0, 1.0, 0.0, 1.0],
         };
         
-        println!("🎨 GlesScenePainter::fill() called with color: {:?}", color);
         
         let mut path = BezPath::new();
         shape.path_elements(0.1).for_each(|el| path.push(el));
@@ -391,11 +389,8 @@ impl PaintScene for GlesScenePainter {
         let brush_ref = brush.into();
         let color = Self::brush_to_color(brush_ref);
         
-        println!("🔤 GlesScenePainter::draw_glyphs() called with font_size: {}, color: {:?}", font_size, color);
-        
         let glyph_vec: Vec<_> = glyphs.collect();
         if glyph_vec.is_empty() {
-            println!("⚪ No glyphs to render, skipping");
             return;
         }
         
@@ -407,21 +402,14 @@ impl PaintScene for GlesScenePainter {
         
         match self.text_renderer.render_text(text, font_size, position, color) {
             Ok(quads) => {
-                if quads.is_empty() {
-                    println!("⚪ No text quads generated, skipping");
-                } else {
-                    println!("✅ Generated {} text quads", quads.len());
+                if !quads.is_empty() {
                     if self.set_transform_uniforms(ShaderType::Text).is_ok() {
-                        println!("✅ Set text transform uniforms successfully");
                         self.render_text_quads(&quads);
-                        println!("✅ Rendered {} text quads", quads.len());
-                    } else {
-                        println!("❌ Failed to set text transform uniforms");
                     }
                 }
             },
             Err(e) => {
-                println!("❌ Text rendering failed: {:?}", e);
+                tracing::error!("Text rendering failed: {:?}", e);
             }
         }
         
@@ -452,8 +440,8 @@ impl PaintScene for GlesScenePainter {
 }
 
 impl GlesScenePainter {
-    pub fn use_texture_shader(&self) -> anyhow::Result<GLuint> {
-        self.shader_manager.use_program(ShaderType::Texture)
+    pub fn use_presentation_shader(&self) -> anyhow::Result<GLuint> {
+        self.shader_manager.use_program(ShaderType::Presentation)
     }
 }
 
