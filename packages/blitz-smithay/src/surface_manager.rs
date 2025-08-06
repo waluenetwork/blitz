@@ -69,6 +69,50 @@ impl WaylandSurfaceManager {
     fn find_surface_by_id(&self, surface_id: ObjectId) -> Option<&WaylandSurface> {
         self.surfaces.get(&surface_id)
     }
+    
+    pub fn render_all_surfaces(&self) -> Vec<RenderElement> {
+        debug!("DEBUG: Phase 3 - Rendering all surfaces in Z-order");
+        
+        let mut render_elements = Vec::new();
+        
+        for surface in self.surfaces.values() {
+            if let Some(element) = self.create_render_element(surface) {
+                render_elements.push(element);
+                debug!("DEBUG: Added surface {:?} to render queue", surface.id());
+            }
+        }
+        
+        debug!("DEBUG: Created {} render elements for multi-surface rendering", render_elements.len());
+        render_elements
+    }
+    
+    fn create_render_element(&self, surface: &WaylandSurface) -> Option<RenderElement> {
+        debug!("DEBUG: Creating render element for surface {:?}", surface.id());
+        
+        if let Some(texture_source) = surface.texture_source() {
+            let element = RenderElement {
+                surface_id: surface.id(),
+                texture_source: texture_source.clone(),
+                transform: surface.transform,
+                scale: surface.scale,
+                z_index: self.calculate_z_index(surface),
+            };
+            
+            debug!("DEBUG: Created render element with z_index={}", element.z_index);
+            Some(element)
+        } else {
+            debug!("DEBUG: Surface {:?} has no texture source, skipping", surface.id());
+            None
+        }
+    }
+    
+    fn calculate_z_index(&self, surface: &WaylandSurface) -> i32 {
+        match surface.state {
+            SurfaceState::Mapped => 100,
+            SurfaceState::Minimized => 0,
+            SurfaceState::Unmapped => -1,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -113,12 +157,12 @@ impl WaylandSurface {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TextureSource {
     Simple(SimpleTexture),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleTexture {
     pub texture: BlitzTexture,
 }
@@ -193,6 +237,42 @@ impl LayerManager {
             Layer::Overlay => self.overlay_layer.push(surface),
         }
     }
+    
+    pub fn render_layers_in_order(&self) -> Vec<LayerRenderElement> {
+        debug!("DEBUG: Phase 3 - Rendering layers in wlr-layer-shell order");
+        
+        let mut elements = Vec::new();
+        
+        elements.extend(self.render_layer(&self.background_layer, Layer::Background));
+        elements.extend(self.render_layer(&self.bottom_layer, Layer::Bottom));
+        elements.extend(self.render_layer(&self.top_layer, Layer::Top));
+        elements.extend(self.render_layer(&self.overlay_layer, Layer::Overlay));
+        
+        debug!("DEBUG: Generated {} layer render elements", elements.len());
+        elements
+    }
+    
+    fn render_layer(&self, surfaces: &[LayerSurface], layer: Layer) -> Vec<LayerRenderElement> {
+        debug!("DEBUG: Rendering layer {:?} with {} surfaces", layer, surfaces.len());
+        
+        surfaces.iter().map(|surface| {
+            LayerRenderElement {
+                surface_id: surface.surface_id,
+                layer: surface.layer,
+                exclusive_zone: surface.exclusive_zone,
+                z_index: self.layer_z_index(layer),
+            }
+        }).collect()
+    }
+    
+    fn layer_z_index(&self, layer: Layer) -> i32 {
+        match layer {
+            Layer::Background => -1000,
+            Layer::Bottom => -500,
+            Layer::Top => 500,
+            Layer::Overlay => 1000,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -253,4 +333,137 @@ impl SubsurfaceTree {
             }
         }
     }
+    
+    pub fn render_subsurface_tree(&self, root_surface: ObjectId) -> Vec<SubsurfaceRenderElement> {
+        debug!("DEBUG: Phase 3 - Rendering subsurface tree for root {:?}", root_surface);
+        
+        let mut elements = Vec::new();
+        self.render_subsurface_recursive(root_surface, 0, &mut elements);
+        
+        debug!("DEBUG: Generated {} subsurface render elements", elements.len());
+        elements
+    }
+    
+    fn render_subsurface_recursive(&self, surface_id: ObjectId, depth: i32, 
+                                  elements: &mut Vec<SubsurfaceRenderElement>) {
+        debug!("DEBUG: Rendering subsurface {:?} at depth {}", surface_id, depth);
+        
+        elements.push(SubsurfaceRenderElement {
+            surface_id,
+            depth,
+            parent_id: self.child_parent_map.get(&surface_id).copied(),
+        });
+        
+        if let Some(children) = self.parent_child_map.get(&surface_id) {
+            for &child in children {
+                self.render_subsurface_recursive(child, depth + 1, elements);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RenderElement {
+    pub surface_id: ObjectId,
+    pub texture_source: TextureSource,
+    pub transform: Transform,
+    pub scale: f64,
+    pub z_index: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct LayerRenderElement {
+    pub surface_id: ObjectId,
+    pub layer: Layer,
+    pub exclusive_zone: ExclusiveZone,
+    pub z_index: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct SubsurfaceRenderElement {
+    pub surface_id: ObjectId,
+    pub depth: i32,
+    pub parent_id: Option<ObjectId>,
+}
+
+pub struct MultiSurfaceRenderer {
+    surface_elements: Vec<RenderElement>,
+    layer_elements: Vec<LayerRenderElement>,
+    subsurface_elements: Vec<SubsurfaceRenderElement>,
+}
+
+impl MultiSurfaceRenderer {
+    pub fn new() -> Self {
+        debug!("DEBUG: Phase 3 - Initializing MultiSurfaceRenderer");
+        
+        Self {
+            surface_elements: Vec::new(),
+            layer_elements: Vec::new(),
+            subsurface_elements: Vec::new(),
+        }
+    }
+    
+    pub fn add_surface_element(&mut self, element: RenderElement) {
+        debug!("DEBUG: Adding surface element {:?} with z_index={}", element.surface_id, element.z_index);
+        self.surface_elements.push(element);
+    }
+    
+    pub fn add_layer_element(&mut self, element: LayerRenderElement) {
+        debug!("DEBUG: Adding layer element {:?} for layer {:?}", element.surface_id, element.layer);
+        self.layer_elements.push(element);
+    }
+    
+    pub fn add_subsurface_element(&mut self, element: SubsurfaceRenderElement) {
+        debug!("DEBUG: Adding subsurface element {:?} at depth {}", element.surface_id, element.depth);
+        self.subsurface_elements.push(element);
+    }
+    
+    pub fn render_all_in_order(&mut self) -> Vec<FinalRenderElement> {
+        debug!("DEBUG: Phase 3 - Rendering all elements in final Z-order");
+        
+        let mut final_elements = Vec::new();
+        
+        for layer_element in &self.layer_elements {
+            final_elements.push(FinalRenderElement {
+                surface_id: layer_element.surface_id,
+                element_type: RenderElementType::Layer(layer_element.layer),
+                z_index: layer_element.z_index,
+            });
+        }
+        
+        for surface_element in &self.surface_elements {
+            final_elements.push(FinalRenderElement {
+                surface_id: surface_element.surface_id,
+                element_type: RenderElementType::Surface,
+                z_index: surface_element.z_index,
+            });
+        }
+        
+        for subsurface_element in &self.subsurface_elements {
+            final_elements.push(FinalRenderElement {
+                surface_id: subsurface_element.surface_id,
+                element_type: RenderElementType::Subsurface(subsurface_element.depth),
+                z_index: subsurface_element.depth * 10,
+            });
+        }
+        
+        final_elements.sort_by_key(|e| e.z_index);
+        
+        debug!("DEBUG: Final render order contains {} elements", final_elements.len());
+        final_elements
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FinalRenderElement {
+    pub surface_id: ObjectId,
+    pub element_type: RenderElementType,
+    pub z_index: i32,
+}
+
+#[derive(Debug, Clone)]
+pub enum RenderElementType {
+    Surface,
+    Layer(Layer),
+    Subsurface(i32),
 }
