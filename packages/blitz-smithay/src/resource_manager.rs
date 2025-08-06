@@ -53,6 +53,49 @@ impl ResourceManager {
         Ok(blitz_texture)
     }
     
+    pub fn cache_dmabuf_texture(&mut self, texture: Arc<BlitzTexture>) -> Result<(), BlitzSmithayError> {
+        debug!("DEBUG: Caching DMA-BUF texture {:?}", texture.id());
+        
+        if !texture.is_dmabuf() {
+            debug!("DEBUG: Warning - attempting to cache non-DMA-BUF texture as DMA-BUF");
+        }
+        
+        let cached_texture = CachedTexture {
+            texture_id: texture.id(),
+            texture: texture.clone(),
+            last_access: std::time::Instant::now(),
+            access_count: 1,
+        };
+        
+        self.texture_cache.put(texture.id(), cached_texture);
+        self.reference_tracker.track_texture_simple(&texture);
+        
+        debug!("DEBUG: DMA-BUF texture cached successfully");
+        Ok(())
+    }
+    
+    pub fn find_dmabuf_texture(&mut self, width: u32, height: u32, format: &str) -> Option<Arc<BlitzTexture>> {
+        debug!("DEBUG: Searching for cached DMA-BUF texture {}x{} format={}", width, height, format);
+        
+        for (_, cached) in self.texture_cache.iter_mut() {
+            let texture = &cached.texture;
+            if texture.width == width && 
+               texture.height == height && 
+               texture.format == format &&
+               texture.is_dmabuf() {
+                
+                cached.last_access = std::time::Instant::now();
+                cached.access_count += 1;
+                
+                debug!("DEBUG: Found cached DMA-BUF texture {:?}", texture.id());
+                return Some(texture.clone());
+            }
+        }
+        
+        debug!("DEBUG: No cached DMA-BUF texture found");
+        None
+    }
+    
     pub fn maybe_cleanup(&mut self) {
         if self.last_cleanup.elapsed() > self.cleanup_interval {
             debug!("DEBUG: Performing periodic cleanup");

@@ -67,6 +67,37 @@ impl FormatConverter {
                    format, self.supported_formats.len());
         }
     }
+    
+    pub fn is_format_supported(&self, format: &str) -> bool {
+        let supported = self.supported_formats.contains(&format.to_string());
+        debug!("DEBUG: Format {} support check: {}", format, supported);
+        supported
+    }
+    
+    pub fn convert_dmabuf_format(&mut self, source_format: &str) -> Result<String, FormatConversionError> {
+        debug!("DEBUG: Converting DMA-BUF format {} to WGPU format", source_format);
+        
+        if let Some(cached) = self.conversion_cache.get(source_format) {
+            debug!("DEBUG: Found cached conversion {} -> {}", source_format, cached);
+            return Ok(cached.clone());
+        }
+        
+        let target_format = match source_format {
+            "ARGB8888" | "XRGB8888" => "RGBA8888",
+            "ABGR8888" | "XBGR8888" => "BGRA8888", 
+            "RGBA8888" | "RGBX8888" => "RGBA8888",
+            "BGRA8888" | "BGRX8888" => "BGRA8888",
+            _ => {
+                debug!("DEBUG: Unsupported source format: {}", source_format);
+                return Err(FormatConversionError::UnsupportedSourceFormat(source_format.to_string()));
+            }
+        };
+        
+        self.conversion_cache.insert(source_format.to_string(), target_format.to_string());
+        
+        debug!("DEBUG: Format conversion successful: {} -> {}", source_format, target_format);
+        Ok(target_format.to_string())
+    }
 }
 
 pub struct GpuFormatConverter {

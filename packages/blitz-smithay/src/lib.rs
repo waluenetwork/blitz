@@ -69,7 +69,6 @@ impl BlitzSmithayRenderer {
     }
 }
 
-/// 
 #[derive(Debug, Clone)]
 pub struct BlitzTexture {
     id: TextureId,
@@ -78,6 +77,10 @@ pub struct BlitzTexture {
     height: u32,
     
     format: String,
+    
+    dmabuf_info: Option<DmaBufInfo>,
+    
+    created_at: std::time::Instant,
 }
 
 impl BlitzTexture {
@@ -91,7 +94,37 @@ impl BlitzTexture {
             width,
             height,
             format,
+            dmabuf_info: None,
+            created_at: std::time::Instant::now(),
         }
+    }
+    
+    pub fn from_dmabuf(width: u32, height: u32, format: String, dmabuf_info: DmaBufInfo) -> Self {
+        let id = TextureId::new();
+        
+        debug!("DEBUG: Created BlitzTexture from DMA-BUF id={:?} format={} size={}x{} fd={}", 
+               id, format, width, height, dmabuf_info.fd);
+        
+        Self {
+            id,
+            width,
+            height,
+            format,
+            dmabuf_info: Some(dmabuf_info),
+            created_at: std::time::Instant::now(),
+        }
+    }
+    
+    pub fn is_dmabuf(&self) -> bool {
+        self.dmabuf_info.is_some()
+    }
+    
+    pub fn dmabuf_info(&self) -> Option<&DmaBufInfo> {
+        self.dmabuf_info.as_ref()
+    }
+    
+    pub fn age(&self) -> std::time::Duration {
+        self.created_at.elapsed()
     }
     
     pub fn id(&self) -> TextureId {
@@ -170,6 +203,35 @@ impl ObjectId {
 }
 
 impl BlitzSmithayRenderer {
+    pub fn import_dmabuf(&mut self, dmabuf_info: DmaBufInfo) -> Result<Arc<BlitzTexture>, BlitzSmithayError> {
+        debug!("DEBUG: Importing DMA-BUF fd={} format={} size={}x{}", 
+               dmabuf_info.fd, dmabuf_info.format, dmabuf_info.width, dmabuf_info.height);
+        
+        if !self.format_converter.is_format_supported(&dmabuf_info.format) {
+            debug!("DEBUG: Format {} not supported, attempting conversion", dmabuf_info.format);
+            return Err(BlitzSmithayError::FormatConversion(
+                FormatConversionError::UnsupportedSourceFormat(dmabuf_info.format.clone())
+            ));
+        }
+        
+        let texture = Arc::new(BlitzTexture::from_dmabuf(
+            dmabuf_info.width,
+            dmabuf_info.height,
+            dmabuf_info.format.clone(),
+            dmabuf_info
+        ));
+        
+        {
+            let mut manager = self.resource_manager
+                .lock()
+                .map_err(|_| BlitzSmithayError::ResourceManagerLocked)?;
+            manager.cache_dmabuf_texture(texture.clone())?;
+        }
+        
+        debug!("DEBUG: DMA-BUF import successful - texture_id={:?}", texture.id());
+        Ok(texture)
+    }
+    
     pub fn render_frame(&mut self, _framebuffer: BlitzFramebuffer) -> Result<BlitzFrame, BlitzSmithayError> {
         debug!("DEBUG: Starting frame render");
         
@@ -181,5 +243,33 @@ impl BlitzSmithayRenderer {
         
         debug!("DEBUG: Frame render setup complete");
         Ok(frame)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DmaBufInfo {
+    pub fd: i32,
+    pub width: u32,
+    pub height: u32,
+    pub format: String,
+    pub stride: u32,
+    pub offset: u32,
+    pub modifier: u64,
+}
+
+impl DmaBufInfo {
+    pub fn new(fd: i32, width: u32, height: u32, format: String, stride: u32) -> Self {
+        debug!("DEBUG: Creating DmaBufInfo fd={} format={} size={}x{} stride={}", 
+               fd, format, width, height, stride);
+        
+        Self {
+            fd,
+            width,
+            height,
+            format,
+            stride,
+            offset: 0,
+            modifier: 0, // DRM_FORMAT_MOD_LINEAR
+        }
     }
 }
