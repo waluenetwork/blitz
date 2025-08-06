@@ -38,6 +38,8 @@ impl WindowRenderer for GlesWindowRenderer {
                 unsafe {
                     gl::Enable(gl::BLEND);
                     gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+                    gl::Disable(gl::DEPTH_TEST);
+                    gl::Disable(gl::CULL_FACE);
                     gl::ClearColor(0.2, 0.2, 0.2, 1.0);
                     gl::Viewport(0, 0, width as i32, height as i32);
                 }
@@ -98,7 +100,7 @@ impl WindowRenderer for GlesWindowRenderer {
 
         unsafe {
             gl::Viewport(0, 0, self.width as i32, self.height as i32);
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
             println!("🧹 Set viewport to {}x{} and cleared GL buffers", self.width, self.height);
         }
 

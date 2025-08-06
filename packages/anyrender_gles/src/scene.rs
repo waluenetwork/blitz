@@ -111,6 +111,9 @@ impl GlesScenePainter {
         
         let transform_matrix = self.affine_to_matrix4(self.current_transform);
         
+        println!("🔍 Debug - Transform matrix: {:?}", transform_matrix);
+        println!("🔍 Debug - Projection matrix: {:?}", self.projection_matrix);
+        
         unsafe {
             let transform_loc = self.shader_manager.get_uniform_location(shader_type, "u_transform")?;
             let projection_loc = self.shader_manager.get_uniform_location(shader_type, "u_projection")?;
@@ -286,7 +289,7 @@ impl PaintScene for GlesScenePainter {
         self.layer_stack.clear();
         
         unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
     }
     
