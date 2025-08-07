@@ -42,7 +42,7 @@ where
     _phantom: std::marker::PhantomData<U>,
 }
 
-impl<T, U> Rectangle<T, U> {
+impl<T: Clone, U: Clone> Rectangle<T, U> {
     pub fn from_loc_and_size(loc: Point<T, U>, size: Size<T, U>) -> Self {
         Self { loc, size, _phantom: std::marker::PhantomData }
     }

@@ -136,7 +136,7 @@ pub struct WaylandSurface {
     state: SurfaceState,
     transform: Transform,
     scale: f64,
-    damage_regions: Vec<Rectangle<i32, smithay::utils::Logical>>,
+    damage_regions: Vec<Rectangle<i32, i32>>,
     opacity: f32,
     blend_mode: BlendMode,
     buffer_age: u32,
