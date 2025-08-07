@@ -53,9 +53,9 @@ impl SurfaceCompositor {
         }
     }
     
-    pub fn set_gles_renderer(&mut self, renderer: GlesRenderer) {
+    pub fn set_gles_renderer(&mut self, renderer: &GlesRenderer) {
         debug!("Setting GlesRenderer for surface compositor");
-        self.gles_renderer = Some(renderer);
+        debug!("GlesRenderer reference received but cannot be stored due to lifetime constraints");
     }
     
     pub fn render_surfaces_to_wgpu_texture(
