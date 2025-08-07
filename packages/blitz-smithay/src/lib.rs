@@ -559,7 +559,7 @@ impl BlitzSmithayRenderer {
         };
         
         if egl_image == smithay::backend::egl::ffi::egl::NO_IMAGE {
-            return Err(BlitzSmithayError::Egl(smithay::backend::egl::Error::CreationFailed(egl::Error::BadAlloc)));
+            return Err(BlitzSmithayError::Egl(smithay::backend::egl::Error::CreationFailed(smithay::backend::egl::EGLError::BadAlloc)));
         }
         
         let mut gl_texture = 0;

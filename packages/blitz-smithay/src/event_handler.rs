@@ -5,7 +5,7 @@ use smithay::{
     backend::input::{
         Event, InputBackend, KeyboardKeyEvent, PointerButtonEvent, PointerMotionEvent,
         PointerAxisEvent, TouchDownEvent, TouchUpEvent, TouchMotionEvent,
-        KeyState as SmithayKeyState, ButtonState, Axis, AxisSource,
+        KeyState as SmithayKeyState, ButtonState, Axis, AxisSource, AxisRelativeDirection,
     },
     input::{
         keyboard::{KeyboardHandle, KeysymHandle, ModifiersState},
@@ -16,7 +16,7 @@ use smithay::{
 };
 
 use blitz_traits::events::{
-    BlitzKeyEvent, KeyState, UiEvent as BlitzEvent,
+    BlitzKeyEvent, KeyState, UiEvent, BlitzMouseButtonEvent, MouseEventButton, MouseEventButtons,
 };
 use keyboard_types::{Code, Key, Location, Modifiers};
 
@@ -64,7 +64,7 @@ pub enum TouchPhase {
 }
 
 pub struct WaylandEventHandler {
-    event_queue: Arc<Mutex<Vec<BlitzEvent>>>,
+    event_queue: Arc<Mutex<Vec<UiEvent>>>,
     modifiers_state: ModifiersState,
 }
 
@@ -89,7 +89,7 @@ impl WaylandEventHandler {
             let mut queue = self.event_queue
                 .lock()
                 .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
-            queue.push(BlitzEvent::Key(blitz_event));
+            queue.push(UiEvent::KeyDown(blitz_event));
         }
         
         Ok(())
@@ -108,7 +108,7 @@ impl WaylandEventHandler {
             let mut queue = self.event_queue
                 .lock()
                 .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
-            queue.push(BlitzEvent::Mouse(blitz_event));
+            queue.push(UiEvent::MouseDown(blitz_event));
         }
         
         Ok(())
@@ -146,7 +146,7 @@ impl WaylandEventHandler {
             let mut queue = self.event_queue
                 .lock()
                 .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
-            queue.push(BlitzEvent::Scroll(blitz_event));
+            queue.push(UiEvent::MouseMove(blitz_event));
         }
         
         Ok(())
@@ -165,7 +165,7 @@ impl WaylandEventHandler {
             let mut queue = self.event_queue
                 .lock()
                 .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
-            queue.push(BlitzEvent::Touch(blitz_event));
+            queue.push(UiEvent::MouseDown(blitz_event));
         }
         
         Ok(())
@@ -183,7 +183,7 @@ impl WaylandEventHandler {
             let mut queue = self.event_queue
                 .lock()
                 .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
-            queue.push(BlitzEvent::Touch(blitz_event));
+            queue.push(UiEvent::MouseUp(blitz_event));
         }
         
         Ok(())
@@ -202,13 +202,13 @@ impl WaylandEventHandler {
             let mut queue = self.event_queue
                 .lock()
                 .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
-            queue.push(BlitzEvent::Touch(blitz_event));
+            queue.push(UiEvent::MouseMove(blitz_event));
         }
         
         Ok(())
     }
     
-    pub fn drain_events(&mut self) -> Result<Vec<BlitzEvent>, BlitzSmithayError> {
+    pub fn drain_events(&mut self) -> Result<Vec<UiEvent>, BlitzSmithayError> {
         let mut queue = self.event_queue
             .lock()
             .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
@@ -244,83 +244,98 @@ impl WaylandEventHandler {
     fn smithay_pointer_button_to_blitz<B: InputBackend>(
         &self,
         event: &impl PointerButtonEvent<B>,
-    ) -> Result<BlitzMouseEvent, BlitzSmithayError> {
+    ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
         let button = self.smithay_button_to_blitz_button(event.button_code());
         let pressed = match event.state() {
             ButtonState::Pressed => true,
             ButtonState::Released => false,
         };
         
-        Ok(BlitzMouseEvent {
-            button,
-            pressed,
-            position: Point::from((0.0, 0.0)),
-            modifiers: self.smithay_modifiers_to_blitz_modifiers(),
+        Ok(BlitzMouseButtonEvent {
+            x: 0.0,
+            y: 0.0,
+            button: MouseEventButton::Main,
+            buttons: MouseEventButtons::Primary,
+            mods: self.smithay_modifiers_to_blitz_modifiers(),
         })
     }
     
     fn smithay_pointer_motion_to_blitz<B: InputBackend>(
         &self,
         event: &impl PointerMotionEvent<B>,
-    ) -> Result<BlitzMouseEvent, BlitzSmithayError> {
-        Ok(BlitzMouseEvent {
-            button: MouseButton::None,
-            pressed: false,
-            position: Point::from((event.delta_x(), event.delta_y())),
-            modifiers: self.smithay_modifiers_to_blitz_modifiers(),
+    ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
+        Ok(BlitzMouseButtonEvent {
+            x: event.delta_x() as f32,
+            y: event.delta_y() as f32,
+            button: MouseEventButton::Main,
+            buttons: MouseEventButtons::None,
+            mods: self.smithay_modifiers_to_blitz_modifiers(),
         })
     }
     
     fn smithay_pointer_axis_to_blitz<B: InputBackend>(
         &self,
         event: &impl PointerAxisEvent<B>,
-    ) -> Result<BlitzScrollEvent, BlitzSmithayError> {
-        let (delta_x, delta_y) = match event.axis() {
-            Axis::Horizontal => (event.amount(), 0.0),
-            Axis::Vertical => (0.0, event.amount()),
+    ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
+        let (delta_x, delta_y) = match event.source() {
+            AxisSource::Wheel | AxisSource::WheelTilt => {
+                let delta_x = event.amount(Axis::Horizontal).unwrap_or(0.0);
+                let delta_y = event.amount(Axis::Vertical).unwrap_or(0.0);
+                (delta_x, delta_y)
+            },
+            AxisSource::Finger | AxisSource::Continuous => {
+                let delta_x = event.amount(Axis::Horizontal).unwrap_or(0.0);
+                let delta_y = event.amount(Axis::Vertical).unwrap_or(0.0);
+                (delta_x, delta_y)
+            },
+            _ => (0.0, 0.0),
         };
         
-        Ok(BlitzScrollEvent {
-            delta_x,
-            delta_y,
-            position: Point::from((0.0, 0.0)),
-            modifiers: self.smithay_modifiers_to_blitz_modifiers(),
+        Ok(BlitzMouseButtonEvent {
+            x: delta_x as f32,
+            y: delta_y as f32,
+            button: MouseEventButton::Main,
+            buttons: MouseEventButtons::None,
+            mods: self.smithay_modifiers_to_blitz_modifiers(),
         })
     }
     
     fn smithay_touch_down_to_blitz<B: InputBackend>(
         &self,
         event: &impl TouchDownEvent<B>,
-    ) -> Result<BlitzTouchEvent, BlitzSmithayError> {
-        Ok(BlitzTouchEvent {
-            id: event.slot().into(),
-            phase: TouchPhase::Started,
-            position: Point::from((event.x(), event.y())),
-            force: None,
+    ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
+        Ok(BlitzMouseButtonEvent {
+            x: event.x() as f32,
+            y: event.y() as f32,
+            button: MouseEventButton::Main,
+            buttons: MouseEventButtons::Primary,
+            mods: self.smithay_modifiers_to_blitz_modifiers(),
         })
     }
     
     fn smithay_touch_up_to_blitz<B: InputBackend>(
         &self,
         event: &impl TouchUpEvent<B>,
-    ) -> Result<BlitzTouchEvent, BlitzSmithayError> {
-        Ok(BlitzTouchEvent {
-            id: event.slot().into(),
-            phase: TouchPhase::Ended,
-            position: Point::from((0.0, 0.0)),
-            force: None,
+    ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
+        Ok(BlitzMouseButtonEvent {
+            x: 0.0,
+            y: 0.0,
+            button: MouseEventButton::Main,
+            buttons: MouseEventButtons::None,
+            mods: self.smithay_modifiers_to_blitz_modifiers(),
         })
     }
     
     fn smithay_touch_motion_to_blitz<B: InputBackend>(
         &self,
         event: &impl TouchMotionEvent<B>,
-    ) -> Result<BlitzTouchEvent, BlitzSmithayError> {
-        Ok(BlitzTouchEvent {
-            id: event.slot().into(),
-            phase: TouchPhase::Moved,
-            position: Point::from((event.x(), event.y())),
-            force: None,
+    ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
+        Ok(BlitzMouseButtonEvent {
+            x: event.x() as f32,
+            y: event.y() as f32,
+            button: MouseEventButton::Main,
+            buttons: MouseEventButtons::None,
+            mods: self.smithay_modifiers_to_blitz_modifiers(),
         })
     }
     
