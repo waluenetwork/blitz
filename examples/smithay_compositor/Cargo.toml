@@ -26,3 +26,7 @@ wgpu = { workspace = true }
 [features]
 default = ["smithay-backend"]
 smithay-backend = ["smithay", "wayland-server", "wayland-protocols"]
+
+[[bin]]
+name = "smithay_compositor"
+path = "src/main.rs"
