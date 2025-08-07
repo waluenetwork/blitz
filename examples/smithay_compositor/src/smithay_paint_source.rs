@@ -132,8 +132,22 @@ impl CompositorHandler for SmithayApp {
         &client.get_data::<ClientState>().unwrap().compositor_state
     }
 
-    fn commit(&mut self, _surface: &WlSurface) {
-        debug!("DEBUG: Surface commit received");
+    fn commit(&mut self, surface: &WlSurface) {
+        debug!("Surface commit received for surface: {:?}", surface.id());
+        
+        let surface_id = ObjectId::new();
+        
+        if let Some(ref surface_compositor) = self.surface_compositor {
+            if let Err(e) = surface_compositor.add_surface(surface_id) {
+                debug!("Failed to add surface to compositor: {:?}", e);
+            } else {
+                debug!("Added surface {:?} to compositor", surface_id);
+            }
+        }
+        
+        if let Err(e) = self.sender.send(SmithayMessage::SurfaceCommitted) {
+            debug!("Failed to send surface commit message: {:?}", e);
+        }
     }
 }
 
@@ -151,15 +165,34 @@ impl XdgShellHandler for SmithayApp {
     }
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
-        debug!("DEBUG: New toplevel surface created");
+        debug!("New toplevel surface created: {:?}", surface.wl_surface().id());
+        
         surface.with_pending_state(|state| {
             state.states.set(xdg_toplevel::State::Activated);
         });
         surface.send_configure();
+        
+        let surface_id = ObjectId::new();
+        
+        if let Some(ref surface_compositor) = self.surface_compositor {
+            if let Err(e) = surface_compositor.add_surface(surface_id) {
+                debug!("Failed to add toplevel surface to compositor: {:?}", e);
+            } else {
+                debug!("Added toplevel surface {:?} to compositor", surface_id);
+            }
+        }
+        
+        if let Err(e) = self.sender.send(SmithayMessage::ClientConnected) {
+            debug!("Failed to send client connected message: {:?}", e);
+        }
     }
 
-    fn new_popup(&mut self, _surface: PopupSurface, _positioner: PositionerState) {
-        debug!("DEBUG: New popup surface created");
+    fn new_popup(&mut self, surface: PopupSurface, _positioner: PositionerState) {
+        debug!("New popup surface created: {:?}", surface.wl_surface().id());
+        
+        if let Err(e) = self.sender.send(SmithayMessage::PopupCreated) {
+            debug!("Failed to send popup created message: {:?}", e);
+        }
     }
 
     fn grab(&mut self, _surface: PopupSurface, _seat: wl_seat::WlSeat, _serial: Serial) {
@@ -201,8 +234,17 @@ impl SeatHandler for SmithayApp {
         &mut self.seat_state
     }
 
-    fn focus_changed(&mut self, _seat: &Seat<Self>, _focused: Option<&WlSurface>) {}
-    fn cursor_image(&mut self, _seat: &Seat<Self>, _image: smithay::input::pointer::CursorImageStatus) {}
+    fn focus_changed(&mut self, _seat: &Seat<Self>, focused: Option<&WlSurface>) {
+        if let Some(surface) = focused {
+            debug!("Focus changed to surface: {:?}", surface.id());
+        } else {
+            debug!("Focus cleared");
+        }
+    }
+    
+    fn cursor_image(&mut self, _seat: &Seat<Self>, _image: smithay::input::pointer::CursorImageStatus) {
+        debug!("Cursor image changed");
+    }
 }
 
 
