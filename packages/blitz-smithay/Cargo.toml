@@ -21,17 +21,16 @@ kurbo = { workspace = true }
 # Memory and collections
 lru = "0.12"
 
-# NOTE: Smithay dependencies commented out due to missing system libraries
-# These will be uncommented once the environment has the required Wayland dev packages:
-# smithay = { version = "0.3", features = ["backend_drm", "backend_gbm", "renderer_gl", "wayland_frontend"] }
-# wayland-server = "0.31"
-# drm = "0.12"
-# gbm = "0.15"
-# egl = "0.2"
-# wgpu = { workspace = true }
-# cgmath = "0.18"
-# indexmap = "2.0"
-# tokio = { version = "1.0", features = ["full"] }
+# Smithay dependencies - now enabled with system libraries installed
+smithay = { version = "0.3", features = ["backend_drm", "backend_gbm", "renderer_gl", "wayland_frontend"], default-features = false }
+wayland-server = "0.31"
+drm = "0.12"
+gbm = "0.15"
+egl = "0.2"
+wgpu = { workspace = true }
+cgmath = "0.18"
+indexmap = "2.0"
+tokio = { version = "1.0", features = ["full"] }
 
 [dev-dependencies]
 tracing-subscriber = "0.3"
