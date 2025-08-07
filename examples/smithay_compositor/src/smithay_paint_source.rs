@@ -2,7 +2,7 @@ use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
 use blitz_smithay::{BlitzSmithayRenderer, ObjectId, surface_compositor::SurfaceCompositor};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use wgpu::Instance;
 use tracing::debug;
@@ -99,7 +99,7 @@ struct SmithayApp {
     seat_state: SeatState<Self>,
     data_device_state: DataDeviceState,
     seat: Seat<Self>,
-    surface_compositor: Option<Arc<SurfaceCompositor>>,
+    surface_compositor: Option<Arc<Mutex<SurfaceCompositor>>>,
     sender: Sender<SmithayMessage>,
 }
 
@@ -397,7 +397,7 @@ impl SmithayPaintSource {
         #[cfg(feature = "smithay-backend")]
         if let Some(state) = wayland_state {
             if let Some(ref app_state) = state.app_state.surface_compositor {
-                if let Err(e) = app_state.render_surfaces_to_wgpu_texture(target_texture) {
+                if let Err(e) = app_state.lock().unwrap().render_surfaces_to_wgpu_texture(target_texture) {
                     debug!("Error rendering surfaces to WGPU texture: {:?}", e);
                 } else {
                     debug!("Successfully rendered Wayland surfaces to WGPU texture");
@@ -441,11 +441,11 @@ impl SmithayPaintSource {
                 );
                 
                 if let Some(gles_renderer) = renderer.gles_renderer() {
-                    surface_compositor.set_gles_renderer(gles_renderer.clone());
+                    surface_compositor.set_gles_renderer(gles_renderer);
                     debug!("Set GlesRenderer for SurfaceCompositor");
                 }
                 
-                Some(Arc::new(surface_compositor))
+                Some(Arc::new(Mutex::new(surface_compositor)))
             } else {
                 debug!("Failed to get WGPU device from BlitzSmithayRenderer");
                 None
