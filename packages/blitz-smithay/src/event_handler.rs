@@ -10,7 +10,7 @@ use smithay::{
     input::{
         keyboard::{KeyboardHandle, KeysymHandle, ModifiersState},
         pointer::{PointerHandle, ButtonEvent, MotionEvent},
-        touch::{TouchHandle, DownEvent, UpEvent, MotionEvent as TouchMotionEvent},
+        touch::{TouchHandle, DownEvent, UpEvent, MotionEvent as TouchMotion},
     },
     utils::{Logical, Point},
 };

@@ -620,7 +620,7 @@ impl BlitzSmithayRenderer {
                     Some(Box::new(move || {
                     })),
                 )
-            }).ok_or(BlitzSmithayError::HalBridgeInitialization)?;
+            }).ok_or(BlitzSmithayError::HalBridgeInitialization)?;;
         };
         
         match hal_texture {
