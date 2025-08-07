@@ -33,7 +33,7 @@ license = "MIT OR Apache-2.0"
 homepage = "https://github.com/dioxuslabs/blitz"
 repository = "https://github.com/dioxuslabs/blitz"
 categories = ["gui"]
-edition = "2024"
+edition = "2021"
 
 [workspace.dependencies]
 # Anyrender dependencies(in-repo)
@@ -159,7 +159,7 @@ panic = "abort"
 name = "blitz-examples"
 version = "0.0.1"
 authors = ["Jonathan Kelley"]
-edition = "2024"
+edition = "2021"
 description = "Top level crate for Blitz"
 license = "MIT OR Apache-2.0"
 keywords = ["dom", "ui", "gui", "react", "wasm"]
