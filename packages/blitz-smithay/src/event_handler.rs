@@ -4,13 +4,13 @@ use tracing::debug;
 use smithay::{
     backend::input::{
         Event, InputBackend, KeyboardKeyEvent, PointerButtonEvent, PointerMotionEvent,
-        PointerAxisEvent, TouchDownEvent, TouchUpEvent, TouchMotionEvent,
+        PointerAxisEvent, TouchDownEvent, TouchUpEvent,
         KeyState as SmithayKeyState, ButtonState, Axis, AxisSource,
     },
     input::{
         keyboard::{KeyboardHandle, KeysymHandle, ModifiersState},
         pointer::{PointerHandle, ButtonEvent, MotionEvent},
-        touch::{TouchHandle, DownEvent, UpEvent, MotionEvent as TouchMotion},
+        touch::{TouchHandle, DownEvent, UpEvent, MotionEvent as TouchMotionEvent},
     },
     utils::{Logical, Point},
 };
