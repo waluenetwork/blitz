@@ -174,7 +174,7 @@ impl CompositorHandler for SmithayApp {
                 };
                 
                 let texture = BlitzTexture::new(spec.width as u32, spec.height as u32, format.to_string());
-                Ok(texture)
+                Ok::<BlitzTexture, Box<dyn std::error::Error>>(texture)
             }) {
                 if let Ok(texture) = buffer_data {
                     if let Some(ref surface_compositor) = self.surface_compositor {
@@ -423,7 +423,7 @@ impl SmithayPaintSource {
         
         {
             let view = target_texture.create_view(&wgpu::TextureViewDescriptor::default());
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Smithay Compositor Background Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
