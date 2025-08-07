@@ -16,13 +16,24 @@ use crate::{
     BlitzTexture, ObjectId,
 };
 
-#[derive(Clone)]
 pub struct SurfaceCompositor {
     surface_manager: Arc<Mutex<WaylandSurfaceManager>>,
     gles_renderer: Option<GlesRenderer>,
     wgpu_device: WgpuDevice,
     wgpu_queue: WgpuQueue,
     output_size: Size<i32, i32>,
+}
+
+impl Clone for SurfaceCompositor {
+    fn clone(&self) -> Self {
+        Self {
+            surface_manager: self.surface_manager.clone(),
+            gles_renderer: None, // GlesRenderer doesn't implement Clone, so we set to None
+            wgpu_device: self.wgpu_device.clone(),
+            wgpu_queue: self.wgpu_queue.clone(),
+            output_size: self.output_size,
+        }
+    }
 }
 
 impl SurfaceCompositor {
