@@ -8,14 +8,24 @@ use smithay::{
         egl::{EGLContext, EGLDisplay},
         renderer::gles::GlesRenderer,
     },
+    delegate_compositor, delegate_data_device, delegate_output, delegate_seat, delegate_shm,
+    delegate_xdg_shell, delegate_primary_selection, delegate_data_control,
     desktop::{Space, PopupManager, Window},
-    input::{SeatState, Seat},
+    input::{SeatState, Seat, SeatHandler},
+    output::{OutputHandler, OutputManagerState},
     wayland::{
-        compositor::CompositorState,
-        shell::xdg::XdgShellState,
-        shm::ShmState,
-        selection::data_device::DataDeviceState,
+        compositor::{CompositorState, CompositorHandler},
+        shell::xdg::{XdgShellState, XdgShellHandler},
+        shm::{ShmState, ShmHandler},
+        selection::{
+            data_device::{DataDeviceState, DataDeviceHandler, ClientDndGrabHandler, ServerDndGrabHandler},
+            primary_selection::{PrimarySelectionState, PrimarySelectionHandler},
+            wlr_data_control::{DataControlState, DataControlHandler},
+            SelectionHandler,
+        },
+        buffer::BufferHandler,
     },
+    utils::{Logical, Point},
 };
 use wayland_server::Display as WaylandDisplay;
 use calloop::EventLoop;
@@ -60,6 +70,9 @@ pub struct AnvilState {
     pub shm_state: ShmState,
     pub seat_state: SeatState<Self>,
     pub data_device_state: DataDeviceState,
+    pub primary_selection_state: PrimarySelectionState,
+    pub data_control_state: DataControlState,
+    pub output_manager_state: OutputManagerState,
     pub seat: Seat<Self>,
     pub space: Space<Window>,
     pub popups: PopupManager,
@@ -141,6 +154,9 @@ impl BlitzSmithayRenderer {
         let seat = seat_state.new_wl_seat(&display_handle, "blitz-compositor");
         
         let data_device_state = DataDeviceState::new::<AnvilState>(&display_handle);
+        let primary_selection_state = PrimarySelectionState::new::<AnvilState>(&display_handle);
+        let data_control_state = DataControlState::new::<AnvilState>(&display_handle);
+        let output_manager_state = OutputManagerState::new_with_xdg_output::<AnvilState>(&display_handle);
         
         let space = Space::default();
         let popups = PopupManager::default();
@@ -151,6 +167,9 @@ impl BlitzSmithayRenderer {
             shm_state,
             seat_state,
             data_device_state,
+            primary_selection_state,
+            data_control_state,
+            output_manager_state,
             seat,
             space,
             popups,
@@ -164,9 +183,143 @@ impl BlitzSmithayRenderer {
             state,
         })
     }
+}
+
+delegate_compositor!(AnvilState);
+
+impl CompositorHandler for AnvilState {
+    fn compositor_state(&mut self) -> &mut CompositorState {
+        &mut self.compositor_state
+    }
     
+    fn client_compositor_state<'a>(&self, client: &'a wayland_server::Client) -> &'a smithay::wayland::compositor::CompositorClientState {
+        &client.get_data::<smithay::wayland::compositor::CompositorClientState>().unwrap()
+    }
+    
+    fn new_surface(&mut self, surface: &wayland_server::protocol::wl_surface::WlSurface) {
+        debug!("New surface created: {:?}", surface);
+    }
+    
+    fn commit(&mut self, surface: &wayland_server::protocol::wl_surface::WlSurface) {
+        debug!("Surface committed: {:?}", surface);
+    }
+}
+
+impl BufferHandler for AnvilState {
+    fn buffer_destroyed(&mut self, buffer: &wayland_server::protocol::wl_buffer::WlBuffer) {
+        debug!("Buffer destroyed: {:?}", buffer);
+    }
+}
+
+impl DataDeviceHandler for AnvilState {
+    fn data_device_state(&mut self) -> &mut DataDeviceState {
+        &mut self.data_device_state
+    }
+}
+
+impl ClientDndGrabHandler for AnvilState {
+    fn started(&mut self, _source: Option<wayland_server::protocol::wl_data_source::WlDataSource>, _icon: Option<wayland_server::protocol::wl_surface::WlSurface>, _seat: Seat<Self>) {
+        debug!("DnD grab started");
+    }
+    
+    fn dropped(&mut self, _target: Option<wayland_server::protocol::wl_surface::WlSurface>, _validated: bool, _seat: Seat<Self>) {
+        debug!("DnD grab dropped");
+    }
+}
+
+impl ServerDndGrabHandler for AnvilState {
+    fn send(&mut self, _mime_type: String, _fd: std::os::unix::io::OwnedFd, _seat: Seat<Self>) {
+        debug!("Server DnD send");
+    }
+}
+
+delegate_data_device!(AnvilState);
+
+impl OutputHandler for AnvilState {}
+delegate_output!(AnvilState);
+
+impl SelectionHandler for AnvilState {
+    type SelectionUserData = ();
+}
+
+impl PrimarySelectionHandler for AnvilState {
+    fn primary_selection_state(&mut self) -> &mut PrimarySelectionState {
+        &mut self.primary_selection_state
+    }
+}
+
+delegate_primary_selection!(AnvilState);
+
+impl DataControlHandler for AnvilState {
+    fn data_control_state(&mut self) -> &mut DataControlState {
+        &mut self.data_control_state
+    }
+}
+
+delegate_data_control!(AnvilState);
+
+impl ShmHandler for AnvilState {
+    fn shm_state(&self) -> &ShmState {
+        &self.shm_state
+    }
+}
+
+delegate_shm!(AnvilState);
+
+impl SeatHandler for AnvilState {
+    type KeyboardFocus = Window;
+    type PointerFocus = Window;
+    type TouchFocus = Window;
+    
+    fn seat_state(&mut self) -> &mut SeatState<AnvilState> {
+        &mut self.seat_state
+    }
+    
+    fn focus_changed(&mut self, _seat: &Seat<Self>, _target: Option<&Window>) {
+        debug!("Focus changed");
+    }
+    
+    fn cursor_image(&mut self, _seat: &Seat<Self>, _image: smithay::input::pointer::CursorImageStatus) {
+        debug!("Cursor image changed");
+    }
+    
+    fn led_state_changed(&mut self, _seat: &Seat<Self>, _led_state: smithay::input::keyboard::LedState) {
+        debug!("LED state changed");
+    }
+}
+
+delegate_seat!(AnvilState);
+
+impl XdgShellHandler for AnvilState {
+    fn xdg_shell_state(&mut self) -> &mut XdgShellState {
+        &mut self.xdg_shell_state
+    }
+    
+    fn new_toplevel(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
+        debug!("New toplevel surface: {:?}", surface);
+        let window = Window::new(surface);
+        self.space.map_element(window, (0, 0), false);
+    }
+    
+    fn new_popup(&mut self, surface: smithay::wayland::shell::xdg::PopupSurface, _positioner: smithay::wayland::shell::xdg::PositionerState) {
+        debug!("New popup surface: {:?}", surface);
+        let _ = self.popups.track_popup(smithay::desktop::PopupKind::Xdg(surface));
+    }
+    
+    fn toplevel_destroyed(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
+        debug!("Toplevel destroyed: {:?}", surface);
+    }
+    
+    fn popup_destroyed(&mut self, surface: smithay::wayland::shell::xdg::PopupSurface) {
+        debug!("Popup destroyed: {:?}", surface);
+    }
+}
+
+delegate_xdg_shell!(AnvilState);
+
+impl BlitzSmithayRenderer {
     pub fn create_texture(&mut self, width: u32, height: u32, format: String) -> Result<Arc<BlitzTexture>, BlitzSmithayError> {
-        debug!("DEBUG: Creating texture - format={} size={}x{}", format, width, height);
+        debug!("Creating texture - format={} size={}x{}", format, width, height);
         
         let texture = {
             let mut manager = self.resource_manager
@@ -175,7 +328,7 @@ impl BlitzSmithayRenderer {
             manager.create_texture(width, height, format)?
         };
         
-        debug!("DEBUG: Texture creation successful - texture_id={:?}", texture.id());
+        debug!("Texture creation successful - texture_id={:?}", texture.id());
         Ok(texture)
     }
 }
