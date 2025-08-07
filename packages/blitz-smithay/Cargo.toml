@@ -32,6 +32,7 @@ wgpu = { workspace = true }
 cgmath = "0.18"
 indexmap = "2.0"
 tokio = { version = "1.0", features = ["full"] }
+keyboard-types = "0.7"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

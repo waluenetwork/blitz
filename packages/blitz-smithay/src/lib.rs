@@ -127,10 +127,10 @@ impl BlitzSmithayRenderer {
         let egl_display = unsafe { 
             EGLDisplay::new(&gbm_device, None)?
         };
-        let egl_context = EGLContext::new(&egl_display, None)?;
+        let egl_context = EGLContext::new(&egl_display)?;
         
         let gles_renderer = unsafe { 
-            GlesRenderer::new(egl_context, None)?
+            GlesRenderer::new(egl_context)?
         };
         
         let smithay_compositor = self.create_smithay_compositor()?;
@@ -160,7 +160,7 @@ impl BlitzSmithayRenderer {
         
         let data_device_state = DataDeviceState::new::<AnvilState>(&display_handle);
         let primary_selection_state = PrimarySelectionState::new::<AnvilState>(&display_handle);
-        let data_control_state = DataControlState::new::<AnvilState>(&display_handle);
+        let data_control_state = DataControlState::new::<AnvilState, _>(&display_handle, None, |_| true);
         let output_manager_state = OutputManagerState::new_with_xdg_output::<AnvilState>(&display_handle);
         
         let space = Space::default();
@@ -302,7 +302,7 @@ impl XdgShellHandler for AnvilState {
     
     fn new_toplevel(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
         debug!("New toplevel surface: {:?}", surface);
-        let window = Window::new(surface);
+        let window = Window::new(surface.clone());
         self.space.map_element(window, (0, 0), false);
     }
     
@@ -346,7 +346,7 @@ impl BlitzSmithayRenderer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlitzTexture {
     id: TextureId,
     width: u32,
@@ -549,7 +549,6 @@ impl BlitzSmithayRenderer {
             ];
             
             smithay::backend::egl::ffi::egl::CreateImageKHR(
-                self.egl_display,
                 smithay::backend::egl::ffi::egl::NO_CONTEXT,
                 smithay::backend::egl::ffi::egl::LINUX_DMA_BUF_EXT,
                 std::ptr::null_mut(),
@@ -558,7 +557,7 @@ impl BlitzSmithayRenderer {
         };
         
         if egl_image == smithay::backend::egl::ffi::egl::NO_IMAGE {
-            return Err(BlitzSmithayError::Egl(smithay::backend::egl::Error::CreationFailed));
+            return Err(BlitzSmithayError::Egl(smithay::backend::egl::Error::CreationFailed(egl::Error::BadAlloc)));
         }
         
         let mut gl_texture = 0;
@@ -603,7 +602,7 @@ impl BlitzSmithayRenderer {
         let hal_texture = unsafe {
             use wgpu::hal::{Api, Device as HalDevice};
             
-            let hal_device = self.wgpu_device.as_hal::<wgpu::hal::gles::Api, _, _>(|device| {
+            let hal_device = self.wgpu_device.expect("WGPU device required").as_hal::<wgpu::hal::gles::Api, _, _>(|device| {
                 device.unwrap().create_texture_from_raw(
                     gl_texture,
                     &wgpu::hal::TextureDescriptor {
@@ -620,13 +619,13 @@ impl BlitzSmithayRenderer {
                     Some(Box::new(move || {
                     })),
                 )
-            }).ok_or(BlitzSmithayError::HalBridgeInitialization)?;;
+            }).ok_or(BlitzSmithayError::HalBridgeInitialization)?;
         };
         
         match hal_texture {
             Ok(hal_tex) => {
                 let wgpu_texture = unsafe {
-                    self.wgpu_device.create_texture_from_hal(
+                    self.wgpu_device.expect("WGPU device required").create_texture_from_hal(
                         hal_tex,
                         &texture_desc,
                     )
@@ -644,14 +643,14 @@ impl BlitzSmithayRenderer {
     
     fn drm_fourcc_from_format(&self, format: &str) -> Result<i32, BlitzSmithayError> {
         let fourcc = match format {
-            "ARGB8888" => drm::Fourcc::Argb8888,
-            "XRGB8888" => drm::Fourcc::Xrgb8888,
-            "ABGR8888" => drm::Fourcc::Abgr8888,
-            "XBGR8888" => drm::Fourcc::Xbgr8888,
-            "RGBA8888" => drm::Fourcc::Rgba8888,
-            "RGBX8888" => drm::Fourcc::Rgbx8888,
-            "BGRA8888" => drm::Fourcc::Bgra8888,
-            "BGRX8888" => drm::Fourcc::Bgrx8888,
+            "ARGB8888" => Fourcc::Argb8888,
+            "XRGB8888" => Fourcc::Xrgb8888,
+            "ABGR8888" => Fourcc::Abgr8888,
+            "XBGR8888" => Fourcc::Xbgr8888,
+            "RGBA8888" => Fourcc::Rgba8888,
+            "RGBX8888" => Fourcc::Rgbx8888,
+            "BGRA8888" => Fourcc::Bgra8888,
+            "BGRX8888" => Fourcc::Bgrx8888,
             _ => return Err(BlitzSmithayError::FormatConversion(
                 FormatConversionError::UnsupportedSourceFormat(format.to_string())
             )),

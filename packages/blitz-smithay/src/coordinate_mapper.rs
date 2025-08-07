@@ -32,7 +32,11 @@ impl<T, U> Size<T, U> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Rectangle<T, U = ()> {
+pub struct Rectangle<T, U = ()> 
+where 
+    T: Clone,
+    U: Clone,
+{
     pub loc: Point<T, U>,
     pub size: Size<T, U>,
     _phantom: std::marker::PhantomData<U>,
