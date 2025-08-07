@@ -142,7 +142,7 @@ impl CompositorHandler for SmithayApp {
         let surface_id = ObjectId::new();
         
         if let Some(ref surface_compositor) = self.surface_compositor {
-            if let Err(e) = surface_compositor.add_surface(surface_id) {
+            if let Err(e) = surface_compositor.lock().unwrap().add_surface(surface_id) {
                 debug!("Failed to add surface to compositor: {:?}", e);
             } else {
                 debug!("Added surface {:?} to compositor", surface_id);
@@ -179,7 +179,7 @@ impl XdgShellHandler for SmithayApp {
         let surface_id = ObjectId::new();
         
         if let Some(ref surface_compositor) = self.surface_compositor {
-            if let Err(e) = surface_compositor.add_surface(surface_id) {
+            if let Err(e) = surface_compositor.lock().unwrap().add_surface(surface_id) {
                 debug!("Failed to add toplevel surface to compositor: {:?}", e);
             } else {
                 debug!("Added toplevel surface {:?} to compositor", surface_id);
@@ -441,7 +441,7 @@ impl SmithayPaintSource {
                 );
                 
                 if let Some(gles_renderer) = renderer.gles_renderer() {
-                    surface_compositor.set_gles_renderer(gles_renderer);
+                    surface_compositor.set_gles_renderer(gles_renderer.clone());
                     debug!("Set GlesRenderer for SurfaceCompositor");
                 }
                 
