@@ -16,6 +16,7 @@ use crate::{
     BlitzTexture, ObjectId,
 };
 
+#[derive(Clone)]
 pub struct SurfaceCompositor {
     surface_manager: Arc<Mutex<WaylandSurfaceManager>>,
     gles_renderer: Option<GlesRenderer>,

@@ -148,6 +148,22 @@ impl BlitzSmithayRenderer {
         Ok(())
     }
     
+    pub fn wgpu_device(&self) -> Option<&wgpu::Device> {
+        self.wgpu_device.as_ref()
+    }
+    
+    pub fn wgpu_queue(&self) -> Option<&wgpu::Queue> {
+        self.wgpu_queue.as_ref()
+    }
+    
+    pub fn gles_renderer(&self) -> Option<&GlesRenderer> {
+        self.gles_renderer.as_ref()
+    }
+    
+    pub fn output_size(&self) -> Option<(u32, u32)> {
+        Some((800, 600))
+    }
+    
     fn create_smithay_compositor(&self) -> Result<SmithayCompositor, BlitzSmithayError> {
         debug!("Creating Smithay compositor instance");
         

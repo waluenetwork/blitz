@@ -3,7 +3,6 @@ use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
 use blitz_smithay::{BlitzSmithayRenderer, ObjectId, surface_compositor::SurfaceCompositor};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::Instant;
 use wgpu::Instance;
 use tracing::debug;
@@ -33,7 +32,7 @@ use wayland_server::{
         wl_buffer,
         wl_surface::WlSurface,
     },
-    Client, ListeningSocket,
+    Client, ListeningSocket, Resource,
 };
 
 #[cfg(feature = "smithay-backend")]
@@ -435,15 +434,14 @@ impl SmithayPaintSource {
                 let queue = renderer.wgpu_queue().expect("WGPU queue should be available");
                 let output_size = renderer.output_size().unwrap_or((800, 600));
                 
-                let surface_compositor = SurfaceCompositor::new(
+                let mut surface_compositor = SurfaceCompositor::new(
                     device.clone(),
                     queue.clone(),
                     smithay::utils::Size::from((output_size.0 as i32, output_size.1 as i32)),
                 );
                 
                 if let Some(gles_renderer) = renderer.gles_renderer() {
-                    let mut compositor = surface_compositor.clone();
-                    compositor.set_gles_renderer(gles_renderer.clone());
+                    surface_compositor.set_gles_renderer(gles_renderer.clone());
                     debug!("Set GlesRenderer for SurfaceCompositor");
                 }
                 
