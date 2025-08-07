@@ -19,7 +19,6 @@ use smithay::{
     input::{Seat, SeatHandler, SeatState},
     reexports::wayland_server::{Display, protocol::wl_seat},
     utils::Serial,
-    backend::allocator::Format,
     wayland::{
         buffer::BufferHandler,
         compositor::{CompositorClientState, CompositorHandler, CompositorState, with_states, SurfaceAttributes, BufferAssignment},
@@ -157,7 +156,7 @@ impl CompositorHandler for SmithayApp {
                     BufferAssignment::NewBuffer(buffer) => Some(buffer.clone()),
                     _ => None,
                 })
-        }).flatten();
+        });
         
         if let Some(buffer) = has_buffer {
             debug!("Surface has buffer attached");
@@ -167,14 +166,14 @@ impl CompositorHandler for SmithayApp {
                        spec.format, spec.width, spec.height, spec.stride);
                 
                 let format = match spec.format {
-                    smithay::wayland::shm::Format::Argb8888 => "ARGB8888",
-                    smithay::wayland::shm::Format::Xrgb8888 => "XRGB8888", 
-                    smithay::wayland::shm::Format::Rgba8888 => "RGBA8888",
-                    smithay::wayland::shm::Format::Bgra8888 => "BGRA8888",
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Argb8888 => "ARGB8888",
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Xrgb8888 => "XRGB8888", 
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Rgba8888 => "RGBA8888",
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Bgra8888 => "BGRA8888",
                     _ => "RGBA8888", // fallback
                 };
                 
-                let texture = BlitzTexture::new(spec.width, spec.height, format.to_string());
+                let texture = BlitzTexture::new(spec.width as u32, spec.height as u32, format.to_string());
                 Ok(texture)
             }) {
                 if let Ok(texture) = buffer_data {
