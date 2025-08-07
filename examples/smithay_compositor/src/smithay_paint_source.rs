@@ -743,14 +743,14 @@ impl SmithayPaintSource {
                 .collect();
             
             state.queue.write_texture(
-                wgpu::TexelCopyTextureInfo {
+                wgpu::ImageCopyTexture {
                     texture: &texture,
                     mip_level: 0,
                     origin: wgpu::Origin3d::ZERO,
                     aspect: wgpu::TextureAspect::All,
                 },
                 &color_data,
-                wgpu::TexelCopyBufferLayout {
+                wgpu::ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(width * 4),
                     rows_per_image: Some(height),
@@ -758,7 +758,211 @@ impl SmithayPaintSource {
                 wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
             );
             
-            let _blitz_texture = BlitzTexture::from_wgpu_texture(texture);
+            let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
+            debug!("Successfully created mock surface texture with BlitzTexture");
+        }
+    }
+    
+    fn create_mock_surface_with_texture(&mut self, width: u32, height: u32, color: [f32; 4]) {
+        if let SmithayRendererState::Active(ref state) = self.state {
+            debug!("Creating mock surface {}x{} with color {:?}", width, height, color);
+            
+            let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Mock Surface Texture"),
+                size: wgpu::Extent3d { 
+                    width, 
+                    height, 
+                    depth_or_array_layers: 1 
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            
+            let color_data: Vec<u8> = (0..width * height)
+                .flat_map(|_| {
+                    [
+                        (color[0] * 255.0) as u8,
+                        (color[1] * 255.0) as u8,
+                        (color[2] * 255.0) as u8,
+                        (color[3] * 255.0) as u8,
+                    ]
+                })
+                .collect();
+            
+            state.queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &color_data,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            );
+            
+            let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
+            debug!("Successfully created mock surface texture with BlitzTexture");
+        }
+    }
+    
+    fn create_mock_surface_with_texture(&mut self, width: u32, height: u32, color: [f32; 4]) {
+        if let SmithayRendererState::Active(ref state) = self.state {
+            debug!("Creating mock surface {}x{} with color {:?}", width, height, color);
+            
+            let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Mock Surface Texture"),
+                size: wgpu::Extent3d { 
+                    width, 
+                    height, 
+                    depth_or_array_layers: 1 
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            
+            let color_data: Vec<u8> = (0..width * height)
+                .flat_map(|_| {
+                    [
+                        (color[0] * 255.0) as u8,
+                        (color[1] * 255.0) as u8,
+                        (color[2] * 255.0) as u8,
+                        (color[3] * 255.0) as u8,
+                    ]
+                })
+                .collect();
+            
+            state.queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &color_data,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            );
+            
+            let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
+            debug!("Successfully created mock surface texture with BlitzTexture");
+        }
+    }
+    
+    fn create_mock_surface_with_texture(&mut self, width: u32, height: u32, color: [f32; 4]) {
+        if let SmithayRendererState::Active(ref state) = self.state {
+            debug!("Creating mock surface {}x{} with color {:?}", width, height, color);
+            
+            let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Mock Surface Texture"),
+                size: wgpu::Extent3d { 
+                    width, 
+                    height, 
+                    depth_or_array_layers: 1 
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            
+            let color_data: Vec<u8> = (0..width * height)
+                .flat_map(|_| {
+                    [
+                        (color[0] * 255.0) as u8,
+                        (color[1] * 255.0) as u8,
+                        (color[2] * 255.0) as u8,
+                        (color[3] * 255.0) as u8,
+                    ]
+                })
+                .collect();
+            
+            state.queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &color_data,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            );
+            
+            let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
+            debug!("Successfully created mock surface texture with BlitzTexture");
+        }
+    }
+    
+    fn create_mock_surface_with_texture(&mut self, width: u32, height: u32, color: [f32; 4]) {
+        if let SmithayRendererState::Active(ref state) = self.state {
+            debug!("Creating mock surface {}x{} with color {:?}", width, height, color);
+            
+            let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Mock Surface Texture"),
+                size: wgpu::Extent3d { 
+                    width, 
+                    height, 
+                    depth_or_array_layers: 1 
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            
+            let color_data: Vec<u8> = (0..width * height)
+                .flat_map(|_| {
+                    [
+                        (color[0] * 255.0) as u8,
+                        (color[1] * 255.0) as u8,
+                        (color[2] * 255.0) as u8,
+                        (color[3] * 255.0) as u8,
+                    ]
+                })
+                .collect();
+            
+            state.queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &color_data,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            );
+            
+            let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
             debug!("Successfully created mock surface texture with BlitzTexture");
         }
     }
