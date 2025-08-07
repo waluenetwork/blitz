@@ -441,7 +441,7 @@ impl SmithayPaintSource {
                 );
                 
                 if let Some(gles_renderer) = renderer.gles_renderer() {
-                    surface_compositor.set_gles_renderer(gles_renderer.clone());
+                    surface_compositor.set_gles_renderer(gles_renderer);
                     debug!("Set GlesRenderer for SurfaceCompositor");
                 }
                 
