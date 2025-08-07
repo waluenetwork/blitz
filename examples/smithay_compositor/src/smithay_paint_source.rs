@@ -201,7 +201,7 @@ impl CompositorHandler for SmithayApp {
                                 origin: wgpu::Origin3d::ZERO,
                                 aspect: wgpu::TextureAspect::All,
                             },
-                            data,
+                            unsafe { std::slice::from_raw_parts(data, len) },
                             wgpu::ImageDataLayout {
                                 offset: 0,
                                 bytes_per_row: Some(spec.stride as u32),
