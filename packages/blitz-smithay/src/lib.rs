@@ -414,7 +414,7 @@ impl BlitzTexture {
         }
     }
     
-    pub fn from_wgpu_texture(width: u32, height: u32, format: String, dmabuf_info: DmaBufInfo, wgpu_texture: wgpu::Texture) -> Self {
+    pub fn from_wgpu_texture_with_dmabuf(width: u32, height: u32, format: String, dmabuf_info: DmaBufInfo, wgpu_texture: wgpu::Texture) -> Self {
         let id = TextureId::new();
         
         debug!("Created BlitzTexture from WGPU texture id={:?} format={} size={}x{} fd={}", 
@@ -427,6 +427,24 @@ impl BlitzTexture {
             format,
             dmabuf_info: Some(dmabuf_info),
             wgpu_texture: Some(wgpu_texture),
+            created_at: std::time::Instant::now(),
+        }
+    }
+    
+    pub fn from_wgpu_texture(texture: wgpu::Texture) -> Self {
+        let size = texture.size();
+        let id = TextureId::new();
+        
+        debug!("Created BlitzTexture from WGPU texture id={:?} size={}x{}", 
+               id, size.width, size.height);
+        
+        Self {
+            id,
+            width: size.width,
+            height: size.height,
+            format: "RGBA8".to_string(),
+            dmabuf_info: None,
+            wgpu_texture: Some(texture),
             created_at: std::time::Instant::now(),
         }
     }
@@ -536,7 +554,7 @@ impl BlitzSmithayRenderer {
         
         let wgpu_texture = self.bridge_gl_texture_to_wgpu(gl_texture, &dmabuf_info, &wgpu_format)?;
         
-        let texture = Arc::new(BlitzTexture::from_wgpu_texture(
+        let texture = Arc::new(BlitzTexture::from_wgpu_texture_with_dmabuf(
             dmabuf_info.width,
             dmabuf_info.height,
             wgpu_format,

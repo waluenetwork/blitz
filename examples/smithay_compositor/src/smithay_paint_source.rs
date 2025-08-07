@@ -1,8 +1,7 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use blitz_smithay::{BlitzSmithayRenderer, ObjectId, surface_compositor::SurfaceCompositor, BlitzTexture, DmaBufInfo};
+use blitz_smithay::{BlitzSmithayRenderer, BlitzTexture};
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use wgpu;
 use wgpu::Instance;
@@ -474,7 +473,7 @@ impl SmithayPaintSource {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.1, b: 0.2, a: 1.0 }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.05, g: 0.05, b: 0.1, a: 1.0 }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -644,23 +643,44 @@ impl SmithayPaintSource {
 
     #[cfg(not(feature = "smithay-backend"))]
     fn dispatch_wayland_events(&mut self) {
-        if let Some(ref mut wayland_state) = self.wayland_state {
-            let elapsed = self.start_time.elapsed().as_secs();
-            
+        let elapsed = self.start_time.elapsed().as_secs();
+        let mut should_create_first_surface = false;
+        let mut should_create_second_surface = false;
+        
+        if let Some(ref wayland_state) = self.wayland_state {
             if elapsed >= 2 && wayland_state.client_count == 0 {
-                wayland_state.client_count = 1;
-                wayland_state.surface_count = 1;
-                debug!("DEBUG: Mock simulation - terminal client connection and surface creation");
-                
-                let _ = self.tx.send(SmithayMessage::ClientConnected);
-                let _ = self.tx.send(SmithayMessage::NewToplevelSurface);
+                should_create_first_surface = true;
             }
             
             if elapsed >= 5 && wayland_state.surface_count == 1 {
-                wayland_state.surface_count = 2;
-                debug!("DEBUG: Mock simulation - additional surface creation");
-                let _ = self.tx.send(SmithayMessage::NewToplevelSurface);
+                should_create_second_surface = true;
             }
+        }
+        
+        if should_create_first_surface {
+            debug!("DEBUG: Mock simulation - terminal client connection and surface creation");
+            
+            self.create_mock_surface_with_texture(400, 300, [0.2, 0.8, 0.2, 1.0]);
+            
+            if let Some(ref mut wayland_state) = self.wayland_state {
+                wayland_state.client_count = 1;
+                wayland_state.surface_count = 1;
+            }
+            
+            let _ = self.tx.send(SmithayMessage::ClientConnected);
+            let _ = self.tx.send(SmithayMessage::NewToplevelSurface);
+        }
+        
+        if should_create_second_surface {
+            debug!("DEBUG: Mock simulation - additional surface creation");
+            
+            self.create_mock_surface_with_texture(300, 200, [0.8, 0.2, 0.2, 1.0]);
+            
+            if let Some(ref mut wayland_state) = self.wayland_state {
+                wayland_state.surface_count = 2;
+            }
+            
+            let _ = self.tx.send(SmithayMessage::NewToplevelSurface);
         }
     }
     
@@ -690,6 +710,57 @@ impl SmithayPaintSource {
                 debug!("DEBUG: Successfully spawned weston-terminal as test client");
             }
         });
+    }
+    
+    fn create_mock_surface_with_texture(&mut self, width: u32, height: u32, color: [f32; 4]) {
+        if let SmithayRendererState::Active(ref state) = self.state {
+            debug!("Creating mock surface {}x{} with color {:?}", width, height, color);
+            
+            let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Mock Surface Texture"),
+                size: wgpu::Extent3d { 
+                    width, 
+                    height, 
+                    depth_or_array_layers: 1 
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            
+            let color_data: Vec<u8> = (0..width * height)
+                .flat_map(|_| {
+                    [
+                        (color[0] * 255.0) as u8,
+                        (color[1] * 255.0) as u8,
+                        (color[2] * 255.0) as u8,
+                        (color[3] * 255.0) as u8,
+                    ]
+                })
+                .collect();
+            
+            state.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &color_data,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            );
+            
+            let _blitz_texture = BlitzTexture::from_wgpu_texture(texture);
+            debug!("Successfully created mock surface texture with BlitzTexture");
+        }
     }
 }
 
