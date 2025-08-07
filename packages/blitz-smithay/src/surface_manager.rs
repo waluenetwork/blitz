@@ -71,39 +71,53 @@ impl WaylandSurfaceManager {
     }
     
     pub fn render_all_surfaces(&self) -> Vec<RenderElement> {
-        debug!("DEBUG: Phase 3 - Rendering all surfaces in Z-order");
+        debug!("Rendering all surfaces in Z-order");
         
         let mut render_elements = Vec::new();
         
-        for surface in self.surfaces.values() {
-            if let Some(element) = self.create_render_element(surface) {
-                render_elements.push(element);
-                debug!("DEBUG: Added surface {:?} to render queue", surface.id());
+        let mut sorted_surfaces: Vec<_> = self.surfaces.values().collect();
+        sorted_surfaces.sort_by_key(|surface| self.calculate_z_index(surface));
+        
+        for surface in sorted_surfaces {
+            if surface.state == SurfaceState::Mapped {
+                if let Some(element) = self.create_render_element(surface) {
+                    render_elements.push(element);
+                    debug!("Added surface {:?} to render queue with z_index={}", 
+                           surface.id(), element.z_index);
+                }
             }
         }
         
-        debug!("DEBUG: Created {} render elements for multi-surface rendering", render_elements.len());
+        debug!("Created {} render elements for multi-surface rendering", render_elements.len());
         render_elements
     }
     
     fn create_render_element(&self, surface: &WaylandSurface) -> Option<RenderElement> {
-        debug!("DEBUG: Creating render element for surface {:?}", surface.id());
+        debug!("Creating render element for surface {:?}", surface.id());
         
         if let Some(texture_source) = surface.texture_source() {
-            let element = RenderElement {
-                surface_id: surface.id(),
-                texture_source: texture_source.clone(),
-                transform: surface.transform,
-                scale: surface.scale,
-                z_index: self.calculate_z_index(surface),
-            };
-            
-            debug!("DEBUG: Created render element with z_index={}", element.z_index);
-            Some(element)
-        } else {
-            debug!("DEBUG: Surface {:?} has no texture source, skipping", surface.id());
-            None
+            if let TextureSource::Simple(simple_texture) = texture_source {
+                if simple_texture.texture.wgpu_texture().is_some() {
+                    let element = RenderElement {
+                        surface_id: surface.id(),
+                        texture_source: texture_source.clone(),
+                        transform: surface.transform,
+                        scale: surface.scale,
+                        z_index: self.calculate_z_index(surface),
+                        damage_regions: surface.get_damage_regions(),
+                        opacity: surface.opacity,
+                        blend_mode: surface.blend_mode,
+                    };
+                    
+                    debug!("Created render element with z_index={} opacity={}", 
+                           element.z_index, element.opacity);
+                    return Some(element);
+                }
+            }
         }
+        
+        debug!("Surface {:?} has no valid texture source, skipping", surface.id());
+        None
     }
     
     fn calculate_z_index(&self, surface: &WaylandSurface) -> i32 {
@@ -118,19 +132,19 @@ impl WaylandSurfaceManager {
 #[derive(Debug)]
 pub struct WaylandSurface {
     id: ObjectId,
-    
     texture_source: Option<TextureSource>,
-    
     state: SurfaceState,
-    
     transform: Transform,
-    
     scale: f64,
+    damage_regions: Vec<Rectangle<i32>>,
+    opacity: f32,
+    blend_mode: BlendMode,
+    buffer_age: u32,
 }
 
 impl WaylandSurface {
     fn new(id: ObjectId) -> Self {
-        debug!("DEBUG: Creating new WaylandSurface {:?}", id);
+        debug!("Creating new WaylandSurface {:?}", id);
         
         Self {
             id,
@@ -138,6 +152,10 @@ impl WaylandSurface {
             state: SurfaceState::Unmapped,
             transform: Transform::Normal,
             scale: 1.0,
+            damage_regions: Vec::new(),
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            buffer_age: 0,
         }
     }
     
@@ -150,10 +168,43 @@ impl WaylandSurface {
     }
     
     pub fn set_texture(&mut self, texture: BlitzTexture) {
-        debug!("DEBUG: Setting texture for surface {:?}", self.id);
+        debug!("Setting texture for surface {:?}", self.id);
         self.texture_source = Some(TextureSource::Simple(SimpleTexture {
             texture,
         }));
+        self.buffer_age += 1;
+    }
+    
+    pub fn get_damage_regions(&self) -> Vec<Rectangle<i32>> {
+        self.damage_regions.clone()
+    }
+    
+    pub fn add_damage_region(&mut self, region: Rectangle<i32>) {
+        debug!("Adding damage region {:?} to surface {:?}", region, self.id);
+        self.damage_regions.push(region);
+    }
+    
+    pub fn clear_damage_regions(&mut self) {
+        self.damage_regions.clear();
+    }
+    
+    pub fn set_opacity(&mut self, opacity: f32) {
+        self.opacity = opacity.clamp(0.0, 1.0);
+    }
+    
+    pub fn set_blend_mode(&mut self, blend_mode: BlendMode) {
+        self.blend_mode = blend_mode;
+    }
+    
+    pub fn map_surface(&mut self) {
+        debug!("Mapping surface {:?}", self.id);
+        self.state = SurfaceState::Mapped;
+    }
+    
+    pub fn unmap_surface(&mut self) {
+        debug!("Unmapping surface {:?}", self.id);
+        self.state = SurfaceState::Unmapped;
+        self.clear_damage_regions();
     }
 }
 
@@ -174,6 +225,16 @@ pub enum SurfaceState {
     Minimized,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlendMode {
+    Normal,
+    Multiply,
+    Screen,
+    Overlay,
+    SoftLight,
+    HardLight,
+}
+
 pub struct SurfaceDamageTracker {
     surface_damages: HashMap<ObjectId, Vec<Rectangle<i32>>>,
     accumulated_damage: Vec<Rectangle<i32>>,
@@ -191,15 +252,31 @@ impl SurfaceDamageTracker {
     
     fn track_surface_damage(&mut self, surface_id: ObjectId, 
                            damage: Vec<Rectangle<i32>>) {
-        debug!("DEBUG: Tracking {} damage rectangles for surface {:?}", 
+        debug!("Tracking {} damage rectangles for surface {:?}", 
                damage.len(), surface_id);
         
-        debug!("DEBUG: Damage tracking simplified for surface {:?}", surface_id);
+        self.surface_damages.insert(surface_id, damage.clone());
+        
+        self.accumulated_damage.extend(damage);
+        
+        debug!("Total accumulated damage regions: {}", self.accumulated_damage.len());
     }
     
     fn commit_surface_damage(&mut self, surface_id: ObjectId) {
-        debug!("DEBUG: Committing damage for surface {:?}", surface_id);
+        debug!("Committing damage for surface {:?}", surface_id);
         
+        if let Some(damage) = self.surface_damages.remove(&surface_id) {
+            debug!("Committed {} damage regions for surface {:?}", damage.len(), surface_id);
+        }
+    }
+    
+    pub fn get_accumulated_damage(&self) -> &[Rectangle<i32>] {
+        &self.accumulated_damage
+    }
+    
+    pub fn clear_accumulated_damage(&mut self) {
+        debug!("Clearing accumulated damage ({} regions)", self.accumulated_damage.len());
+        self.accumulated_damage.clear();
     }
     
     fn remove_surface(&mut self, surface_id: ObjectId) {
@@ -369,6 +446,9 @@ pub struct RenderElement {
     pub transform: Transform,
     pub scale: f64,
     pub z_index: i32,
+    pub damage_regions: Vec<Rectangle<i32>>,
+    pub opacity: f32,
+    pub blend_mode: BlendMode,
 }
 
 #[derive(Debug, Clone)]

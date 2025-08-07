@@ -41,6 +41,7 @@ pub mod coordinate_mapper;
 pub mod resource_manager;
 pub mod surface_manager;
 pub mod event_handler;
+pub mod surface_compositor;
 
 pub use error::*;
 pub use format_converter::*;
@@ -48,6 +49,7 @@ pub use coordinate_mapper::*;
 pub use resource_manager::*;
 pub use surface_manager::*;
 pub use event_handler::*;
+pub use surface_compositor::*;
 
 pub struct BlitzSmithayRenderer {
     format_converter: FormatConverter,
