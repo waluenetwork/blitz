@@ -153,8 +153,6 @@ impl CompositorHandler for SmithayApp {
             } else {
                 debug!("Added surface {:?} to compositor", surface_id);
                 
-                if let Some(ref renderer) = self.blitz_renderer {
-                }
             }
         }
         
@@ -261,12 +259,6 @@ impl SeatHandler for SmithayApp {
 }
 
 
-
-#[derive(Clone)]
-struct TextureAndHandle {
-    texture: wgpu::Texture,
-    handle: TextureHandle,
-}
 
 impl CustomPaintSource for SmithayPaintSource {
     fn resume(&mut self, _instance: &Instance, device_handle: &DeviceHandle) {
