@@ -280,7 +280,7 @@ impl SeatHandler for AnvilState {
         &mut self.seat_state
     }
     
-    fn focus_changed(&mut self, _seat: &Seat<Self>, _target: Option<&Window>) {
+    fn focus_changed(&mut self, _seat: &Seat<Self>, _target: Option<&WlSurface>) {
         debug!("Focus changed");
     }
     
