@@ -22,6 +22,9 @@ pub struct SurfaceCompositor {
     wgpu_device: WgpuDevice,
     wgpu_queue: WgpuQueue,
     output_size: Size<i32, i32>,
+    render_pipeline: wgpu::RenderPipeline,
+    bind_group_layout: wgpu::BindGroupLayout,
+    sampler: wgpu::Sampler,
 }
 
 impl Clone for SurfaceCompositor {
@@ -32,6 +35,9 @@ impl Clone for SurfaceCompositor {
             wgpu_device: self.wgpu_device.clone(),
             wgpu_queue: self.wgpu_queue.clone(),
             output_size: self.output_size,
+            render_pipeline: self.render_pipeline.clone(),
+            bind_group_layout: self.bind_group_layout.clone(),
+            sampler: self.sampler.clone(),
         }
     }
 }
@@ -44,12 +50,81 @@ impl SurfaceCompositor {
     ) -> Self {
         debug!("Initializing SurfaceCompositor with output size {:?}", output_size);
         
+        let shader = wgpu_device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Surface Shader"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!("surface_shader.wgsl"))),
+        });
+        
+        let bind_group_layout = wgpu_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Surface Bind Group Layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
+        
+        let pipeline_layout = wgpu_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Surface Pipeline Layout"),
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+        
+        let render_pipeline = wgpu_device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Surface Render Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+        
+        let sampler = wgpu_device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Surface Sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+        
         Self {
             surface_manager: Arc::new(Mutex::new(WaylandSurfaceManager::new())),
             gles_renderer: None,
             wgpu_device,
             wgpu_queue,
             output_size,
+            render_pipeline,
+            bind_group_layout,
+            sampler,
         }
     }
     
@@ -133,13 +208,31 @@ impl SurfaceCompositor {
     
     fn apply_surface_transform(
         &self,
-        _render_pass: &mut wgpu::RenderPass,
+        render_pass: &mut wgpu::RenderPass,
         element: &RenderElement,
-        _texture_view: &TextureView,
+        texture_view: &TextureView,
     ) -> Result<(), BlitzSmithayError> {
         debug!("Applying transform {:?} scale={} to surface {:?}", 
                element.transform, element.scale, element.surface_id);
         
+        let bind_group = self.wgpu_device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Surface Bind Group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
+        });
+        
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &bind_group, &[]);
+        render_pass.draw(0..6, 0..1);
         
         debug!("Transform application completed for surface {:?}", element.surface_id);
         Ok(())
