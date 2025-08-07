@@ -271,7 +271,7 @@ impl SurfaceCompositor {
             .lock()
             .map_err(|_| BlitzSmithayError::ResourceManagerLocked)?;
         
-        for (id, surface) in surface_manager.surfaces.iter_mut() {
+        for (id, surface) in surface_manager.surfaces_mut() {
             if *id == surface_id {
                 surface.set_texture(texture);
                 debug!("Set texture for surface {:?} and mapped it", surface_id);
