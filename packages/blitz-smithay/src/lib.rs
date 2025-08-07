@@ -32,6 +32,9 @@ use calloop::EventLoop;
 use gbm::{Device as GbmDevice, BufferObjectFlags};
 use std::fs::File;
 
+use gl;
+use egl;
+
 pub mod error;
 pub mod format_converter;
 pub mod coordinate_mapper;
@@ -333,17 +336,14 @@ impl BlitzSmithayRenderer {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct BlitzTexture {
     id: TextureId,
-    
     width: u32,
     height: u32,
-    
     format: String,
-    
     dmabuf_info: Option<DmaBufInfo>,
-    
+    wgpu_texture: Option<wgpu::Texture>,
     created_at: std::time::Instant,
 }
 
@@ -351,7 +351,7 @@ impl BlitzTexture {
     pub fn new(width: u32, height: u32, format: String) -> Self {
         let id = TextureId::new();
         
-        debug!("DEBUG: Created BlitzTexture id={:?} format={} size={}x{}", id, format, width, height);
+        debug!("Created BlitzTexture id={:?} format={} size={}x{}", id, format, width, height);
         
         Self {
             id,
@@ -359,6 +359,7 @@ impl BlitzTexture {
             height,
             format,
             dmabuf_info: None,
+            wgpu_texture: None,
             created_at: std::time::Instant::now(),
         }
     }
@@ -366,7 +367,7 @@ impl BlitzTexture {
     pub fn from_dmabuf(width: u32, height: u32, format: String, dmabuf_info: DmaBufInfo) -> Self {
         let id = TextureId::new();
         
-        debug!("DEBUG: Created BlitzTexture from DMA-BUF id={:?} format={} size={}x{} fd={}", 
+        debug!("Created BlitzTexture from DMA-BUF id={:?} format={} size={}x{} fd={}", 
                id, format, width, height, dmabuf_info.fd);
         
         Self {
@@ -375,6 +376,24 @@ impl BlitzTexture {
             height,
             format,
             dmabuf_info: Some(dmabuf_info),
+            wgpu_texture: None,
+            created_at: std::time::Instant::now(),
+        }
+    }
+    
+    pub fn from_wgpu_texture(width: u32, height: u32, format: String, dmabuf_info: DmaBufInfo, wgpu_texture: wgpu::Texture) -> Self {
+        let id = TextureId::new();
+        
+        debug!("Created BlitzTexture from WGPU texture id={:?} format={} size={}x{} fd={}", 
+               id, format, width, height, dmabuf_info.fd);
+        
+        Self {
+            id,
+            width,
+            height,
+            format,
+            dmabuf_info: Some(dmabuf_info),
+            wgpu_texture: Some(wgpu_texture),
             created_at: std::time::Instant::now(),
         }
     }
@@ -401,6 +420,10 @@ impl BlitzTexture {
     
     pub fn format(&self) -> &str {
         &self.format
+    }
+    
+    pub fn wgpu_texture(&self) -> Option<&wgpu::Texture> {
+        self.wgpu_texture.as_ref()
     }
 }
 
@@ -468,21 +491,24 @@ impl ObjectId {
 
 impl BlitzSmithayRenderer {
     pub fn import_dmabuf(&mut self, dmabuf_info: DmaBufInfo) -> Result<Arc<BlitzTexture>, BlitzSmithayError> {
-        debug!("DEBUG: Importing DMA-BUF fd={} format={} size={}x{}", 
+        debug!("Importing DMA-BUF fd={} format={} size={}x{}", 
                dmabuf_info.fd, dmabuf_info.format, dmabuf_info.width, dmabuf_info.height);
         
-        if !self.format_converter.is_format_supported(&dmabuf_info.format) {
-            debug!("DEBUG: Format {} not supported, attempting conversion", dmabuf_info.format);
-            return Err(BlitzSmithayError::FormatConversion(
-                FormatConversionError::UnsupportedSourceFormat(dmabuf_info.format.clone())
-            ));
-        }
+        let wgpu_format = self.format_converter.convert_dmabuf_format(&dmabuf_info.format)
+            .map_err(BlitzSmithayError::FormatConversion)?;
         
-        let texture = Arc::new(BlitzTexture::from_dmabuf(
+        debug!("Converted format {} -> {}", dmabuf_info.format, wgpu_format);
+        
+        let gl_texture = self.import_dmabuf_as_gl_texture(&dmabuf_info)?;
+        
+        let wgpu_texture = self.bridge_gl_texture_to_wgpu(gl_texture, &dmabuf_info, &wgpu_format)?;
+        
+        let texture = Arc::new(BlitzTexture::from_wgpu_texture(
             dmabuf_info.width,
             dmabuf_info.height,
-            dmabuf_info.format.clone(),
-            dmabuf_info
+            wgpu_format,
+            dmabuf_info,
+            wgpu_texture
         ));
         
         {
@@ -492,8 +518,140 @@ impl BlitzSmithayRenderer {
             manager.cache_dmabuf_texture(texture.clone())?;
         }
         
-        debug!("DEBUG: DMA-BUF import successful - texture_id={:?}", texture.id());
+        debug!("DMA-BUF import successful - texture_id={:?}", texture.id());
         Ok(texture)
+    }
+    
+    fn import_dmabuf_as_gl_texture(&mut self, dmabuf_info: &DmaBufInfo) -> Result<u32, BlitzSmithayError> {
+        debug!("Importing DMA-BUF as OpenGL texture fd={}", dmabuf_info.fd);
+        
+        let egl_image = unsafe {
+            let attribs = [
+                egl::WIDTH as i32, dmabuf_info.width as i32,
+                egl::HEIGHT as i32, dmabuf_info.height as i32,
+                egl::LINUX_DRM_FOURCC_EXT as i32, self.drm_fourcc_from_format(&dmabuf_info.format)?,
+                egl::DMA_BUF_PLANE0_FD_EXT as i32, dmabuf_info.fd,
+                egl::DMA_BUF_PLANE0_OFFSET_EXT as i32, dmabuf_info.offset as i32,
+                egl::DMA_BUF_PLANE0_PITCH_EXT as i32, dmabuf_info.stride as i32,
+                egl::DMA_BUF_PLANE0_MODIFIER_LO_EXT as i32, (dmabuf_info.modifier & 0xFFFFFFFF) as i32,
+                egl::DMA_BUF_PLANE0_MODIFIER_HI_EXT as i32, (dmabuf_info.modifier >> 32) as i32,
+                egl::NONE as i32,
+            ];
+            
+            egl::CreateImageKHR(
+                self.egl_display,
+                egl::NO_CONTEXT,
+                egl::LINUX_DMA_BUF_EXT,
+                std::ptr::null_mut(),
+                attribs.as_ptr(),
+            )
+        };
+        
+        if egl_image == egl::NO_IMAGE {
+            return Err(BlitzSmithayError::Egl(smithay::backend::egl::Error::CreationFailed));
+        }
+        
+        let mut gl_texture = 0;
+        unsafe {
+            gl::GenTextures(1, &mut gl_texture);
+            gl::BindTexture(gl::TEXTURE_2D, gl_texture);
+            gl::EGLImageTargetTexture2DOES(gl::TEXTURE_2D, egl_image as *const _);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+            
+            egl::DestroyImageKHR(self.egl_display, egl_image);
+        }
+        
+        debug!("Created OpenGL texture {} from DMA-BUF", gl_texture);
+        Ok(gl_texture)
+    }
+    
+    fn bridge_gl_texture_to_wgpu(&mut self, gl_texture: u32, dmabuf_info: &DmaBufInfo, wgpu_format: &str) -> Result<wgpu::Texture, BlitzSmithayError> {
+        debug!("Bridging OpenGL texture {} to WGPU", gl_texture);
+        
+        let texture_format = match wgpu_format {
+            "RGBA8888" => wgpu::TextureFormat::Rgba8Unorm,
+            "BGRA8888" => wgpu::TextureFormat::Bgra8Unorm,
+            "RGBA8888_SRGB" => wgpu::TextureFormat::Rgba8UnormSrgb,
+            "BGRA8888_SRGB" => wgpu::TextureFormat::Bgra8UnormSrgb,
+            _ => return Err(BlitzSmithayError::FormatConversion(
+                FormatConversionError::UnsupportedTargetFormat(wgpu_format.to_string())
+            )),
+        };
+        
+        let texture_desc = wgpu::TextureDescriptor {
+            label: Some("DMA-BUF imported texture"),
+            size: wgpu::Extent3d {
+                width: dmabuf_info.width,
+                height: dmabuf_info.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: texture_format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        };
+        
+        let hal_texture = unsafe {
+            use wgpu::hal::{Api, Device as HalDevice};
+            
+            let hal_device = self.wgpu_device.as_hal::<wgpu::hal::gles::Api, _, _>(|device| {
+                device.unwrap().create_texture_from_raw(
+                    gl_texture,
+                    &wgpu::hal::TextureDescriptor {
+                        label: texture_desc.label,
+                        size: texture_desc.size,
+                        mip_level_count: texture_desc.mip_level_count,
+                        sample_count: texture_desc.sample_count,
+                        dimension: texture_desc.dimension,
+                        format: texture_format,
+                        usage: wgpu::hal::TextureUses::COLOR_TARGET | wgpu::hal::TextureUses::RESOURCE,
+                        memory_flags: wgpu::hal::MemoryFlags::empty(),
+                        view_formats: vec![],
+                    },
+                    Some(Box::new(move || {
+                        unsafe { gl::DeleteTextures(1, &gl_texture) };
+                    })),
+                )
+            }).ok_or(BlitzSmithayError::HalBridgeInitialization)?
+        };
+        
+        match hal_texture {
+            Ok(hal_tex) => {
+                let wgpu_texture = unsafe {
+                    self.wgpu_device.create_texture_from_hal(
+                        hal_tex,
+                        &texture_desc,
+                    )
+                };
+                
+                debug!("Successfully bridged OpenGL texture to WGPU");
+                Ok(wgpu_texture)
+            }
+            Err(e) => {
+                debug!("Failed to create HAL texture: {:?}", e);
+                Err(BlitzSmithayError::HalBridgeInitialization)
+            }
+        }
+    }
+    
+    fn drm_fourcc_from_format(&self, format: &str) -> Result<i32, BlitzSmithayError> {
+        let fourcc = match format {
+            "ARGB8888" => drm::buffer::format::ARGB8888,
+            "XRGB8888" => drm::buffer::format::XRGB8888,
+            "ABGR8888" => drm::buffer::format::ABGR8888,
+            "XBGR8888" => drm::buffer::format::XBGR8888,
+            "RGBA8888" => drm::buffer::format::RGBA8888,
+            "RGBX8888" => drm::buffer::format::RGBX8888,
+            "BGRA8888" => drm::buffer::format::BGRA8888,
+            "BGRX8888" => drm::buffer::format::BGRX8888,
+            _ => return Err(BlitzSmithayError::FormatConversion(
+                FormatConversionError::UnsupportedSourceFormat(format.to_string())
+            )),
+        };
+        
+        Ok(fourcc as i32)
     }
     
     pub fn render_frame(&mut self, _framebuffer: BlitzFramebuffer) -> Result<BlitzFrame, BlitzSmithayError> {
