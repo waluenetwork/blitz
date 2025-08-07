@@ -43,6 +43,14 @@ impl Clone for SurfaceCompositor {
 }
 
 impl SurfaceCompositor {
+    pub fn wgpu_device(&self) -> &WgpuDevice {
+        &self.wgpu_device
+    }
+    
+    pub fn wgpu_queue(&self) -> &WgpuQueue {
+        &self.wgpu_queue
+    }
+    
     pub fn new(
         wgpu_device: WgpuDevice,
         wgpu_queue: WgpuQueue,

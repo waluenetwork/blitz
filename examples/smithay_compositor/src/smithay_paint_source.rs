@@ -174,9 +174,10 @@ impl CompositorHandler for SmithayApp {
                     _ => "RGBA8888", // fallback
                 };
                 
-                if let Some(ref renderer) = self.blitz_renderer {
-                    if let Some(device) = renderer.wgpu_device() {
-                        let queue = renderer.wgpu_queue().expect("WGPU queue should be available");
+                if let Some(ref surface_compositor) = self.surface_compositor {
+                    let compositor = surface_compositor.lock().unwrap();
+                    let device = compositor.wgpu_device();
+                    let queue = compositor.wgpu_queue();
                         
                         let wgpu_texture = device.create_texture(&wgpu::TextureDescriptor {
                             label: Some("Wayland Surface Texture"),
@@ -216,11 +217,8 @@ impl CompositorHandler for SmithayApp {
                         let dmabuf_info = DmaBufInfo::new(0, spec.width as u32, spec.height as u32, format.to_string(), spec.stride as u32);
                         let texture = BlitzTexture::from_wgpu_texture(spec.width as u32, spec.height as u32, format.to_string(), dmabuf_info, wgpu_texture);
                         Ok::<BlitzTexture, Box<dyn std::error::Error>>(texture)
-                    } else {
-                        Err("No WGPU device available".into())
-                    }
                 } else {
-                    Err("No BlitzSmithayRenderer available".into())
+                    Err("No SurfaceCompositor available".into())
                 }
             }) {
                 if let Ok(texture) = buffer_data {
