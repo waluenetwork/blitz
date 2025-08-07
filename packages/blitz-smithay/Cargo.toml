@@ -22,8 +22,9 @@ kurbo = { workspace = true }
 lru = "0.12"
 
 # Smithay dependencies - now enabled with system libraries installed
-smithay = { version = "0.3", features = ["backend_drm", "backend_gbm", "renderer_gl", "wayland_frontend"], default-features = false }
+smithay = { version = "0.7", features = ["backend_winit", "renderer_gl", "wayland_frontend", "desktop"], default-features = false }
 wayland-server = "0.31"
+calloop = "0.13"
 drm = "0.12"
 gbm = "0.15"
 egl = "0.2"

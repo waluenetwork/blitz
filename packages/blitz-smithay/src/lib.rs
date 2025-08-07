@@ -3,6 +3,24 @@
 
 use std::sync::{Arc, Mutex};
 use tracing::debug;
+use smithay::{
+    backend::{
+        egl::{EGLContext, EGLDisplay},
+        renderer::gles::GlesRenderer,
+    },
+    desktop::{Space, PopupManager, Window},
+    input::{SeatState, Seat},
+    wayland::{
+        compositor::CompositorState,
+        shell::xdg::XdgShellState,
+        shm::ShmState,
+        selection::data_device::DataDeviceState,
+    },
+};
+use wayland_server::Display as WaylandDisplay;
+use calloop::EventLoop;
+use gbm::{Device as GbmDevice, BufferObjectFlags};
+use std::fs::File;
 
 pub mod error;
 pub mod format_converter;
@@ -16,41 +34,134 @@ pub use coordinate_mapper::*;
 pub use resource_manager::*;
 pub use surface_manager::*;
 
-/// 
 pub struct BlitzSmithayRenderer {
     format_converter: FormatConverter,
-    
     coordinate_mapper: CoordinateMapper,
-    
     resource_manager: Arc<Mutex<ResourceManager>>,
-    
     surface_manager: WaylandSurfaceManager,
+    
+    smithay_compositor: Option<SmithayCompositor>,
+    egl_context: Option<EGLContext>,
+    gles_renderer: Option<GlesRenderer>,
+    
+    wgpu_device: Option<wgpu::Device>,
+    wgpu_queue: Option<wgpu::Queue>,
+}
+
+pub struct SmithayCompositor {
+    pub display: WaylandDisplay<AnvilState>,
+    pub event_loop: EventLoop<'static, AnvilState>,
+    pub state: AnvilState,
+}
+
+pub struct AnvilState {
+    pub compositor_state: CompositorState,
+    pub xdg_shell_state: XdgShellState,
+    pub shm_state: ShmState,
+    pub seat_state: SeatState<Self>,
+    pub data_device_state: DataDeviceState,
+    pub seat: Seat<Self>,
+    pub space: Space<Window>,
+    pub popups: PopupManager,
 }
 
 impl BlitzSmithayRenderer {
     pub fn new() -> Result<Self, BlitzSmithayError> {
-        debug!("DEBUG: Creating new BlitzSmithayRenderer skeleton");
+        debug!("Creating new BlitzSmithayRenderer with real Smithay integration");
         
         let format_converter = FormatConverter::new()?;
-        debug!("DEBUG: Format converter initialized with supported formats: {:?}", 
+        debug!("Format converter initialized with supported formats: {:?}", 
                format_converter.supported_formats());
         
         let coordinate_mapper = CoordinateMapper::new();
-        debug!("DEBUG: Coordinate mapper initialized");
+        debug!("Coordinate mapper initialized");
         
         let resource_manager = Arc::new(Mutex::new(ResourceManager::new()));
-        debug!("DEBUG: Resource manager initialized");
+        debug!("Resource manager initialized");
         
         let surface_manager = WaylandSurfaceManager::new();
-        debug!("DEBUG: Surface manager initialized");
+        debug!("Surface manager initialized");
         
-        debug!("DEBUG: BlitzSmithayRenderer skeleton created successfully");
+        debug!("BlitzSmithayRenderer created successfully - ready for compositor initialization");
         
         Ok(Self {
             format_converter,
             coordinate_mapper,
             resource_manager,
             surface_manager,
+            smithay_compositor: None,
+            egl_context: None,
+            gles_renderer: None,
+            wgpu_device: None,
+            wgpu_queue: None,
+        })
+    }
+    
+    pub fn initialize_compositor(&mut self, wgpu_device: wgpu::Device, wgpu_queue: wgpu::Queue) -> Result<(), BlitzSmithayError> {
+        debug!("Initializing Smithay compositor with WGPU texture bridging");
+        
+        self.wgpu_device = Some(wgpu_device);
+        self.wgpu_queue = Some(wgpu_queue);
+        
+        let drm_file = File::open("/dev/dri/renderD128")?;
+        let gbm_device = GbmDevice::new(drm_file)?;
+        
+        let egl_display = unsafe { 
+            EGLDisplay::new(&gbm_device, None)?
+        };
+        let egl_context = EGLContext::new(&egl_display, None)?;
+        
+        let gles_renderer = unsafe { 
+            GlesRenderer::new(egl_context, None)?
+        };
+        
+        let smithay_compositor = self.create_smithay_compositor()?;
+        
+        self.egl_context = Some(egl_context);
+        self.gles_renderer = Some(gles_renderer);
+        self.smithay_compositor = Some(smithay_compositor);
+        
+        debug!("Smithay compositor initialized successfully with texture bridging");
+        Ok(())
+    }
+    
+    fn create_smithay_compositor(&self) -> Result<SmithayCompositor, BlitzSmithayError> {
+        debug!("Creating Smithay compositor instance");
+        
+        let display = WaylandDisplay::new().map_err(|e| BlitzSmithayError::WaylandDisplay(format!("{:?}", e)))?;
+        let display_handle = display.handle();
+        
+        let event_loop = EventLoop::try_new()?;
+        
+        let compositor_state = CompositorState::new::<AnvilState>(&display_handle);
+        let xdg_shell_state = XdgShellState::new::<AnvilState>(&display_handle);
+        let shm_state = ShmState::new::<AnvilState>(&display_handle, vec![]);
+        
+        let mut seat_state = SeatState::new();
+        let seat = seat_state.new_wl_seat(&display_handle, "blitz-compositor");
+        
+        let data_device_state = DataDeviceState::new::<AnvilState>(&display_handle);
+        
+        let space = Space::default();
+        let popups = PopupManager::default();
+        
+        let state = AnvilState {
+            compositor_state,
+            xdg_shell_state,
+            shm_state,
+            seat_state,
+            data_device_state,
+            seat,
+            space,
+            popups,
+        };
+        
+        debug!("Smithay compositor instance created successfully");
+        
+        Ok(SmithayCompositor {
+            display,
+            event_loop,
+            state,
         })
     }
     

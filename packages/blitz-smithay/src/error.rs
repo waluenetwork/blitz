@@ -26,6 +26,27 @@ pub enum BlitzSmithayError {
     
     #[error("Memory allocation error: {0}")]
     MemoryAllocation(String),
+    
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    
+    #[error("EGL error: {0}")]
+    Egl(#[from] smithay::backend::egl::Error),
+    
+    #[error("Smithay renderer error: {0}")]
+    SmithayRenderer(#[from] smithay::backend::renderer::gles::GlesError),
+    
+    #[error("Wayland display error: {0}")]
+    WaylandDisplay(String),
+    
+    #[error("Event loop error: {0}")]
+    EventLoop(#[from] calloop::Error),
+    
+    #[error("HAL bridge initialization failed")]
+    HalBridgeInitialization,
+    
+    #[error("GBM device error: {0}")]
+    GbmDevice(String),
 }
 
 #[derive(Error, Debug)]
