@@ -1,8 +1,9 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use blitz_smithay::BlitzSmithayRenderer;
+use blitz_smithay::{BlitzSmithayRenderer, ObjectId, surface_compositor::SurfaceCompositor};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Instant;
 use wgpu::Instance;
 use tracing::debug;
@@ -56,6 +57,8 @@ pub enum SmithayMessage {
     UpdateContent,
     ClientConnected,
     NewToplevelSurface,
+    SurfaceCommitted,
+    PopupCreated,
 }
 
 enum SmithayRendererState {
@@ -97,6 +100,8 @@ struct SmithayApp {
     seat_state: SeatState<Self>,
     data_device_state: DataDeviceState,
     seat: Seat<Self>,
+    surface_compositor: Option<Arc<SurfaceCompositor>>,
+    sender: Sender<SmithayMessage>,
 }
 
 #[cfg(feature = "smithay-backend")]
@@ -304,19 +309,25 @@ impl SmithayPaintSource {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
                 SmithayMessage::SurfaceCreated(width, height) => {
-                    debug!("DEBUG: Processing surface creation {}x{}", width, height);
+                    debug!("Processing surface creation {}x{}", width, height);
                 }
                 SmithayMessage::SurfaceDestroyed => {
-                    debug!("DEBUG: Processing surface destruction");
+                    debug!("Processing surface destruction");
                 }
                 SmithayMessage::UpdateContent => {
-                    debug!("DEBUG: Processing content update");
+                    debug!("Processing content update");
                 }
                 SmithayMessage::ClientConnected => {
-                    debug!("DEBUG: Processing real Wayland client connection");
+                    debug!("Processing real Wayland client connection");
                 }
                 SmithayMessage::NewToplevelSurface => {
-                    debug!("DEBUG: Processing real toplevel surface creation");
+                    debug!("Processing real toplevel surface creation");
+                }
+                SmithayMessage::SurfaceCommitted => {
+                    debug!("Processing surface commit");
+                }
+                SmithayMessage::PopupCreated => {
+                    debug!("Processing popup creation");
                 }
             }
         }
@@ -359,42 +370,21 @@ impl SmithayPaintSource {
     }
     
     fn render_to_texture(device: &wgpu::Device, queue: &wgpu::Queue, target_texture: &wgpu::Texture, wayland_state: &Option<WaylandCompositorState>) {
-        debug!("DEBUG: Rendering real Smithay compositor content to WGPU texture");
+        debug!("Rendering real Smithay compositor content to WGPU texture");
         
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Smithay Compositor Render"),
         });
         
-        let (r, g, b) = if let Some(state) = wayland_state {
-            #[cfg(feature = "smithay-backend")]
-            {
-                let client_count = state.clients.len();
-                match client_count {
-                    0 => (0.1, 0.2, 0.3), // Default blue - no clients
-                    1 => (0.2, 0.4, 0.2), // Green - one client
-                    _ => (0.4, 0.3, 0.2), // Orange - multiple clients
-                }
-            }
-            #[cfg(not(feature = "smithay-backend"))]
-            {
-                match state.surface_count {
-                    0 => (0.1, 0.2, 0.3), // Default blue - no surfaces
-                    1 => (0.2, 0.4, 0.2), // Green - one surface
-                    _ => (0.4, 0.3, 0.2), // Orange - multiple surfaces
-                }
-            }
-        } else {
-            (0.1, 0.2, 0.3)
-        };
-        
         {
-            let rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Smithay Compositor Pass"),
+            let view = target_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Smithay Compositor Background Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &target_texture.create_view(&wgpu::TextureViewDescriptor::default()),
+                    view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r, g, b, a: 1.0 }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.1, b: 0.2, a: 1.0 }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -402,9 +392,18 @@ impl SmithayPaintSource {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            
-            
             drop(rpass);
+        }
+        
+        #[cfg(feature = "smithay-backend")]
+        if let Some(state) = wayland_state {
+            if let Some(ref app_state) = state.app_state.surface_compositor {
+                if let Err(e) = app_state.render_surfaces_to_wgpu_texture(target_texture) {
+                    debug!("Error rendering surfaces to WGPU texture: {:?}", e);
+                } else {
+                    debug!("Successfully rendered Wayland surfaces to WGPU texture");
+                }
+            }
         }
         
         queue.submit(Some(encoder.finish()));
@@ -431,6 +430,33 @@ impl SmithayPaintSource {
         let mut seat_state = SeatState::new();
         let seat = seat_state.new_wl_seat(&dh, "blitz-compositor");
         
+        let surface_compositor = if let Some(ref renderer) = self.blitz_renderer {
+            if let Some(device) = renderer.wgpu_device() {
+                let queue = renderer.wgpu_queue().expect("WGPU queue should be available");
+                let output_size = renderer.output_size().unwrap_or((800, 600));
+                
+                let surface_compositor = SurfaceCompositor::new(
+                    device.clone(),
+                    queue.clone(),
+                    smithay::utils::Size::from((output_size.0 as i32, output_size.1 as i32)),
+                );
+                
+                if let Some(gles_renderer) = renderer.gles_renderer() {
+                    let mut compositor = surface_compositor.clone();
+                    compositor.set_gles_renderer(gles_renderer.clone());
+                    debug!("Set GlesRenderer for SurfaceCompositor");
+                }
+                
+                Some(Arc::new(surface_compositor))
+            } else {
+                debug!("Failed to get WGPU device from BlitzSmithayRenderer");
+                None
+            }
+        } else {
+            debug!("BlitzSmithayRenderer not available");
+            None
+        };
+        
         let app_state = SmithayApp {
             compositor_state,
             xdg_shell_state: XdgShellState::new::<SmithayApp>(&dh),
@@ -438,6 +464,8 @@ impl SmithayPaintSource {
             seat_state,
             data_device_state: DataDeviceState::new::<SmithayApp>(&dh),
             seat,
+            surface_compositor,
+            sender: self.tx.clone(),
         };
         
         let listener = match ListeningSocket::bind(&socket_name) {

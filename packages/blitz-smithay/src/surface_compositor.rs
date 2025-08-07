@@ -21,14 +21,14 @@ pub struct SurfaceCompositor {
     gles_renderer: Option<GlesRenderer>,
     wgpu_device: WgpuDevice,
     wgpu_queue: WgpuQueue,
-    output_size: Size<i32, smithay::utils::Logical>,
+    output_size: Size<i32, i32>,
 }
 
 impl SurfaceCompositor {
     pub fn new(
         wgpu_device: WgpuDevice,
         wgpu_queue: WgpuQueue,
-        output_size: Size<i32, smithay::utils::Logical>,
+        output_size: Size<i32, i32>,
     ) -> Self {
         debug!("Initializing SurfaceCompositor with output size {:?}", output_size);
         
@@ -180,7 +180,7 @@ impl SurfaceCompositor {
     pub fn track_surface_damage(
         &self,
         surface_id: ObjectId,
-        damage: &[Rectangle<i32, smithay::utils::Logical>],
+        damage: &[Rectangle<i32, i32>],
     ) -> Result<(), BlitzSmithayError> {
         let mut surface_manager = self.surface_manager
             .lock()
