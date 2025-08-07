@@ -4,6 +4,7 @@
 use std::sync::{Arc, Mutex};
 use tracing::debug;
 use wayland_server::protocol::wl_surface::WlSurface;
+use smithay::backend::allocator::Fourcc;
 use smithay::{
     backend::{
         egl::{EGLContext, EGLDisplay},
