@@ -271,8 +271,15 @@ impl SurfaceCompositor {
             .lock()
             .map_err(|_| BlitzSmithayError::ResourceManagerLocked)?;
         
-        debug!("Set texture for surface {:?} and mapped it", surface_id);
-        Ok(())
+        for (id, surface) in surface_manager.surfaces.iter_mut() {
+            if *id == surface_id {
+                surface.set_texture(texture);
+                debug!("Set texture for surface {:?} and mapped it", surface_id);
+                return Ok(());
+            }
+        }
+        
+        Err(BlitzSmithayError::SurfaceError(SurfaceError::SurfaceNotFound))
     }
     
     pub fn track_surface_damage(

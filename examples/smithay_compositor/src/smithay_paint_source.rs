@@ -1,9 +1,10 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use blitz_smithay::{BlitzSmithayRenderer, ObjectId, surface_compositor::SurfaceCompositor, BlitzTexture};
+use blitz_smithay::{BlitzSmithayRenderer, ObjectId, surface_compositor::SurfaceCompositor, BlitzTexture, DmaBufInfo};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use wgpu;
 use wgpu::Instance;
 use tracing::debug;
 
@@ -173,8 +174,54 @@ impl CompositorHandler for SmithayApp {
                     _ => "RGBA8888", // fallback
                 };
                 
-                let texture = BlitzTexture::new(spec.width as u32, spec.height as u32, format.to_string());
-                Ok::<BlitzTexture, Box<dyn std::error::Error>>(texture)
+                if let Some(ref renderer) = self.blitz_renderer {
+                    if let Some(device) = renderer.wgpu_device() {
+                        let queue = renderer.wgpu_queue().expect("WGPU queue should be available");
+                        
+                        let wgpu_texture = device.create_texture(&wgpu::TextureDescriptor {
+                            label: Some("Wayland Surface Texture"),
+                            size: wgpu::Extent3d {
+                                width: spec.width as u32,
+                                height: spec.height as u32,
+                                depth_or_array_layers: 1,
+                            },
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: wgpu::TextureDimension::D2,
+                            format: wgpu::TextureFormat::Rgba8Unorm,
+                            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                            view_formats: &[],
+                        });
+                        
+                        queue.write_texture(
+                            wgpu::ImageCopyTexture {
+                                texture: &wgpu_texture,
+                                mip_level: 0,
+                                origin: wgpu::Origin3d::ZERO,
+                                aspect: wgpu::TextureAspect::All,
+                            },
+                            data,
+                            wgpu::ImageDataLayout {
+                                offset: 0,
+                                bytes_per_row: Some(spec.stride as u32),
+                                rows_per_image: Some(spec.height as u32),
+                            },
+                            wgpu::Extent3d {
+                                width: spec.width as u32,
+                                height: spec.height as u32,
+                                depth_or_array_layers: 1,
+                            },
+                        );
+                        
+                        let dmabuf_info = DmaBufInfo::new(0, spec.width as u32, spec.height as u32, format.to_string(), spec.stride as u32);
+                        let texture = BlitzTexture::from_wgpu_texture(spec.width as u32, spec.height as u32, format.to_string(), dmabuf_info, wgpu_texture);
+                        Ok::<BlitzTexture, Box<dyn std::error::Error>>(texture)
+                    } else {
+                        Err("No WGPU device available".into())
+                    }
+                } else {
+                    Err("No BlitzSmithayRenderer available".into())
+                }
             }) {
                 if let Ok(texture) = buffer_data {
                     if let Some(ref surface_compositor) = self.surface_compositor {

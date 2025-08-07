@@ -66,6 +66,10 @@ impl WaylandSurfaceManager {
         self.surfaces.values()
     }
     
+    pub fn surfaces_mut(&mut self) -> impl Iterator<Item = (&ObjectId, &mut WaylandSurface)> {
+        self.surfaces.iter_mut()
+    }
+    
     fn find_surface_by_id(&self, surface_id: ObjectId) -> Option<&WaylandSurface> {
         self.surfaces.get(&surface_id)
     }
