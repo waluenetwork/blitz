@@ -4,11 +4,9 @@ use tracing::debug;
 use smithay::{
     backend::renderer::{
         gles::GlesRenderer,
-        element::{RenderElement as SmithayRenderElement, AsRenderElements},
-        Frame, Renderer, Bind, Unbind,
+        Frame, Renderer,
     },
-    desktop::{Space, Window},
-    utils::{Point, Rectangle, Size, Transform as SmithayTransform},
+    utils::{Rectangle, Size},
 };
 
 use wgpu::{Device as WgpuDevice, Queue as WgpuQueue, Texture as WgpuTexture, TextureView};
@@ -182,7 +180,7 @@ impl SurfaceCompositor {
     pub fn track_surface_damage(
         &self,
         surface_id: ObjectId,
-        damage: &[Rectangle<i32>],
+        damage: &[Rectangle<i32, smithay::utils::Logical>],
     ) -> Result<(), BlitzSmithayError> {
         let mut surface_manager = self.surface_manager
             .lock()

@@ -12,7 +12,7 @@ use smithay::{
     delegate_xdg_shell, delegate_primary_selection, delegate_data_control,
     desktop::{Space, PopupManager, Window},
     input::{SeatState, Seat, SeatHandler},
-    output::{OutputHandler, OutputManagerState},
+    wayland::output::{OutputHandler, OutputManagerState},
     wayland::{
         compositor::{CompositorState, CompositorHandler},
         shell::xdg::{XdgShellState, XdgShellHandler},
@@ -25,15 +25,13 @@ use smithay::{
         },
         buffer::BufferHandler,
     },
-    utils::{Logical, Point},
+    utils::{Rectangle, Size, Transform},
 };
 use wayland_server::Display as WaylandDisplay;
 use calloop::EventLoop;
-use gbm::{Device as GbmDevice, BufferObjectFlags};
+use gbm::{Device as GbmDevice};
 use std::fs::File;
 
-use gl;
-use egl;
 
 pub mod error;
 pub mod format_converter;
@@ -219,8 +217,8 @@ impl BufferHandler for AnvilState {
 }
 
 impl DataDeviceHandler for AnvilState {
-    fn data_device_state(&mut self) -> &mut DataDeviceState {
-        &mut self.data_device_state
+    fn data_device_state(&self) -> &DataDeviceState {
+        &self.data_device_state
     }
 }
 
@@ -250,16 +248,16 @@ impl SelectionHandler for AnvilState {
 }
 
 impl PrimarySelectionHandler for AnvilState {
-    fn primary_selection_state(&mut self) -> &mut PrimarySelectionState {
-        &mut self.primary_selection_state
+    fn primary_selection_state(&self) -> &PrimarySelectionState {
+        &self.primary_selection_state
     }
 }
 
 delegate_primary_selection!(AnvilState);
 
 impl DataControlHandler for AnvilState {
-    fn data_control_state(&mut self) -> &mut DataControlState {
-        &mut self.data_control_state
+    fn data_control_state(&self) -> &DataControlState {
+        &self.data_control_state
     }
 }
 
@@ -274,9 +272,9 @@ impl ShmHandler for AnvilState {
 delegate_shm!(AnvilState);
 
 impl SeatHandler for AnvilState {
-    type KeyboardFocus = Window;
-    type PointerFocus = Window;
-    type TouchFocus = Window;
+    type KeyboardFocus = WlSurface;
+    type PointerFocus = WlSurface;
+    type TouchFocus = WlSurface;
     
     fn seat_state(&mut self) -> &mut SeatState<AnvilState> {
         &mut self.seat_state
@@ -531,27 +529,27 @@ impl BlitzSmithayRenderer {
         
         let egl_image = unsafe {
             let attribs = [
-                egl::WIDTH as i32, dmabuf_info.width as i32,
-                egl::HEIGHT as i32, dmabuf_info.height as i32,
+                smithay::backend::egl::ffi::egl::WIDTH as i32, dmabuf_info.width as i32,
+                smithay::backend::egl::ffi::egl::HEIGHT as i32, dmabuf_info.height as i32,
                 egl::LINUX_DRM_FOURCC_EXT as i32, self.drm_fourcc_from_format(&dmabuf_info.format)?,
                 egl::DMA_BUF_PLANE0_FD_EXT as i32, dmabuf_info.fd,
                 egl::DMA_BUF_PLANE0_OFFSET_EXT as i32, dmabuf_info.offset as i32,
                 egl::DMA_BUF_PLANE0_PITCH_EXT as i32, dmabuf_info.stride as i32,
                 egl::DMA_BUF_PLANE0_MODIFIER_LO_EXT as i32, (dmabuf_info.modifier & 0xFFFFFFFF) as i32,
                 egl::DMA_BUF_PLANE0_MODIFIER_HI_EXT as i32, (dmabuf_info.modifier >> 32) as i32,
-                egl::NONE as i32,
+                smithay::backend::egl::ffi::egl::NONE as i32,
             ];
             
-            egl::CreateImageKHR(
+            smithay::backend::egl::ffi::egl::CreateImageKHR(
                 self.egl_display,
-                egl::NO_CONTEXT,
-                egl::LINUX_DMA_BUF_EXT,
+                smithay::backend::egl::ffi::egl::NO_CONTEXT,
+                smithay::backend::egl::ffi::egl::LINUX_DMA_BUF_EXT,
                 std::ptr::null_mut(),
                 attribs.as_ptr(),
             )
         };
         
-        if egl_image == egl::NO_IMAGE {
+        if egl_image == smithay::backend::egl::ffi::egl::NO_IMAGE {
             return Err(BlitzSmithayError::Egl(smithay::backend::egl::Error::CreationFailed));
         }
         
@@ -562,7 +560,7 @@ impl BlitzSmithayRenderer {
             gl::EGLImageTargetTexture2DOES(gl::TEXTURE_2D, egl_image as *const _);
             gl::BindTexture(gl::TEXTURE_2D, 0);
             
-            egl::DestroyImageKHR(self.egl_display, egl_image);
+            smithay::backend::egl::ffi::egl::DestroyImageKHR(self.egl_display, egl_image);
         }
         
         debug!("Created OpenGL texture {} from DMA-BUF", gl_texture);

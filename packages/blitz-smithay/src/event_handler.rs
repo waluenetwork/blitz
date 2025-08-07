@@ -9,17 +9,15 @@ use smithay::{
     },
     input::{
         keyboard::{KeyboardHandle, KeysymHandle, ModifiersState},
-        pointer::{PointerHandle, ButtonEvent, MotionEvent, AxisEvent as PointerAxisEvent},
-        touch::{TouchHandle, DownEvent, UpEvent, MotionEvent as TouchMotionEvent},
+        pointer::{PointerHandle, ButtonEvent, MotionEvent},
+        touch::{TouchHandle, DownEvent, UpEvent, MotionEvent as TouchMotion},
     },
     utils::{Logical, Point},
 };
 
 use blitz_traits::events::{
-    BlitzEvent, BlitzKeyEvent, BlitzMouseEvent, BlitzTouchEvent, BlitzScrollEvent,
-    KeyState, MouseButton, TouchPhase,
+    BlitzKeyEvent, KeyState,
 };
-use keyboard_types::{Code, Key, Location, Modifiers};
 
 use crate::error::BlitzSmithayError;
 
