@@ -47,6 +47,9 @@ pub enum BlitzSmithayError {
     
     #[error("GBM device error: {0}")]
     GbmDevice(String),
+    
+    #[error("Event queue locked")]
+    EventQueueLocked,
 }
 
 #[derive(Error, Debug)]
