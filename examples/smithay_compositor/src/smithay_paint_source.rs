@@ -7,6 +7,12 @@ use std::time::Instant;
 use wgpu::Instance;
 use tracing::debug;
 
+#[derive(Clone)]
+struct TextureAndHandle {
+    texture: wgpu::Texture,
+    handle: TextureHandle,
+}
+
 #[cfg(feature = "smithay-backend")]
 use smithay::{
     delegate_compositor, delegate_data_device, delegate_seat, delegate_shm, delegate_xdg_shell,
@@ -146,6 +152,9 @@ impl CompositorHandler for SmithayApp {
                 debug!("Failed to add surface to compositor: {:?}", e);
             } else {
                 debug!("Added surface {:?} to compositor", surface_id);
+                
+                if let Some(ref renderer) = self.blitz_renderer {
+                }
             }
         }
         

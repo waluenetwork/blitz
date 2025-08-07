@@ -174,6 +174,10 @@ impl WaylandSurface {
             texture,
         }));
         self.buffer_age += 1;
+        
+        if self.state == SurfaceState::Unmapped {
+            self.map_surface();
+        }
     }
     
     pub fn get_damage_regions(&self) -> Vec<Rectangle<i32, i32>> {
