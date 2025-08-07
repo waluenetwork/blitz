@@ -1,6 +1,6 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use blitz_smithay::{BlitzSmithayRenderer, ObjectId, surface_compositor::SurfaceCompositor};
+use blitz_smithay::{BlitzSmithayRenderer, ObjectId, surface_compositor::SurfaceCompositor, BlitzTexture};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -19,9 +19,10 @@ use smithay::{
     input::{Seat, SeatHandler, SeatState},
     reexports::wayland_server::{Display, protocol::wl_seat},
     utils::Serial,
+    backend::allocator::Format,
     wayland::{
         buffer::BufferHandler,
-        compositor::{CompositorClientState, CompositorHandler, CompositorState},
+        compositor::{CompositorClientState, CompositorHandler, CompositorState, with_states, SurfaceAttributes, BufferAssignment},
         selection::{
             data_device::{ClientDndGrabHandler, DataDeviceHandler, DataDeviceState, ServerDndGrabHandler},
             SelectionHandler,
@@ -147,10 +148,21 @@ impl CompositorHandler for SmithayApp {
         
         let surface_id = ObjectId::new();
         
-        if let Some(buffer) = surface.current_buffer() {
+        let has_buffer = with_states(surface, |states| {
+            states.cached_state.get::<SurfaceAttributes>()
+                .current()
+                .buffer
+                .as_ref()
+                .and_then(|buffer| match buffer {
+                    BufferAssignment::NewBuffer(buffer) => Some(buffer.clone()),
+                    _ => None,
+                })
+        }).flatten();
+        
+        if let Some(buffer) = has_buffer {
             debug!("Surface has buffer attached");
             
-            if let Ok(buffer_data) = smithay::wayland::shm::with_buffer_contents(&buffer, |data, spec| {
+            if let Ok(buffer_data) = smithay::wayland::shm::with_buffer_contents(&buffer, |data, len, spec| {
                 debug!("Buffer data - format: {:?}, width: {}, height: {}, stride: {}", 
                        spec.format, spec.width, spec.height, spec.stride);
                 
@@ -162,7 +174,7 @@ impl CompositorHandler for SmithayApp {
                     _ => "RGBA8888", // fallback
                 };
                 
-                let texture = crate::BlitzTexture::new(spec.width, spec.height, format.to_string());
+                let texture = BlitzTexture::new(spec.width, spec.height, format.to_string());
                 Ok(texture)
             }) {
                 if let Ok(texture) = buffer_data {
