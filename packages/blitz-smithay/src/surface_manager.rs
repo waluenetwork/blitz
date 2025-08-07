@@ -81,9 +81,11 @@ impl WaylandSurfaceManager {
         for surface in sorted_surfaces {
             if surface.state == SurfaceState::Mapped {
                 if let Some(element) = self.create_render_element(surface) {
+                    let element_z_index = element.z_index;
+                    let surface_id = surface.id();
                     render_elements.push(element);
                     debug!("Added surface {:?} to render queue with z_index={}", 
-                           surface.id(), element.z_index);
+                           surface_id, element_z_index);
                 }
             }
         }
@@ -96,23 +98,22 @@ impl WaylandSurfaceManager {
         debug!("Creating render element for surface {:?}", surface.id());
         
         if let Some(texture_source) = surface.texture_source() {
-            if let TextureSource::Simple(simple_texture) = texture_source {
-                if simple_texture.texture.wgpu_texture().is_some() {
-                    let element = RenderElement {
-                        surface_id: surface.id(),
-                        texture_source: texture_source.clone(),
-                        transform: surface.transform,
-                        scale: surface.scale,
-                        z_index: self.calculate_z_index(surface),
-                        damage_regions: surface.get_damage_regions(),
-                        opacity: surface.opacity,
-                        blend_mode: surface.blend_mode,
-                    };
-                    
-                    debug!("Created render element with z_index={} opacity={}", 
-                           element.z_index, element.opacity);
-                    return Some(element);
-                }
+            let TextureSource::Simple(simple_texture) = texture_source;
+            if simple_texture.texture.wgpu_texture().is_some() {
+                let element = RenderElement {
+                    surface_id: surface.id(),
+                    texture_source: texture_source.clone(),
+                    transform: surface.transform,
+                    scale: surface.scale,
+                    z_index: self.calculate_z_index(surface),
+                    damage_regions: surface.get_damage_regions(),
+                    opacity: surface.opacity,
+                    blend_mode: surface.blend_mode,
+                };
+                
+                debug!("Created render element with z_index={} opacity={}", 
+                       element.z_index, element.opacity);
+                return Some(element);
             }
         }
         

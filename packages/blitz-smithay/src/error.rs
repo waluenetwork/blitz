@@ -12,6 +12,9 @@ pub enum BlitzSmithayError {
     #[error("Resource manager is locked")]
     ResourceManagerLocked,
     
+    #[error("Surface error: {0}")]
+    SurfaceError(SurfaceError),
+    
     #[error("DMA-BUF import failed: {0}")]
     DmaBufImport(String),
     

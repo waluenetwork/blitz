@@ -4,7 +4,6 @@ use tracing::debug;
 use smithay::{
     backend::renderer::{
         gles::GlesRenderer,
-        Frame, Renderer,
     },
     utils::{Rectangle, Size},
 };
@@ -12,8 +11,9 @@ use smithay::{
 use wgpu::{Device as WgpuDevice, Queue as WgpuQueue, Texture as WgpuTexture, TextureView};
 
 use crate::{
-    surface_manager::{WaylandSurfaceManager, RenderElement, FinalRenderElement},
-    BlitzTexture, BlitzSmithayError, ObjectId,
+    error::{BlitzSmithayError, SurfaceError},
+    surface_manager::{WaylandSurfaceManager, RenderElement},
+    BlitzTexture, ObjectId,
 };
 
 pub struct SurfaceCompositor {
@@ -104,17 +104,16 @@ impl SurfaceCompositor {
         debug!("Rendering surface element {:?} with z_index={}", 
                element.surface_id, element.z_index);
         
-        if let crate::surface_manager::TextureSource::Simple(simple_texture) = &element.texture_source {
-            if let Some(wgpu_texture) = simple_texture.texture.wgpu_texture() {
-                let texture_view = wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
-                
-                self.apply_surface_transform(render_pass, element, &texture_view)?;
-                
-                debug!("Rendered surface {:?} with opacity={}", 
-                       element.surface_id, element.opacity);
-            } else {
-                debug!("Surface {:?} has no WGPU texture, skipping", element.surface_id);
-            }
+        let crate::surface_manager::TextureSource::Simple(simple_texture) = &element.texture_source;
+        if let Some(wgpu_texture) = simple_texture.texture.wgpu_texture() {
+            let texture_view = wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            
+            self.apply_surface_transform(render_pass, element, &texture_view)?;
+            
+            debug!("Rendered surface {:?} with opacity={}", 
+                   element.surface_id, element.opacity);
+        } else {
+            debug!("Surface {:?} has no WGPU texture, skipping", element.surface_id);
         }
         
         Ok(())
@@ -122,9 +121,9 @@ impl SurfaceCompositor {
     
     fn apply_surface_transform(
         &self,
-        render_pass: &mut wgpu::RenderPass,
+        _render_pass: &mut wgpu::RenderPass,
         element: &RenderElement,
-        texture_view: &TextureView,
+        _texture_view: &TextureView,
     ) -> Result<(), BlitzSmithayError> {
         debug!("Applying transform {:?} scale={} to surface {:?}", 
                element.transform, element.scale, element.surface_id);
@@ -161,19 +160,18 @@ impl SurfaceCompositor {
     pub fn set_surface_texture(
         &self,
         surface_id: ObjectId,
-        texture: BlitzTexture,
+        _texture: BlitzTexture,
     ) -> Result<(), BlitzSmithayError> {
-        let mut surface_manager = self.surface_manager
+        let surface_manager = self.surface_manager
             .lock()
             .map_err(|_| BlitzSmithayError::ResourceManagerLocked)?;
         
-        if let Some(surface) = surface_manager.surfaces.get_mut(&surface_id) {
-            surface.set_texture(texture);
-            surface.map_surface();
+        let surfaces: Vec<_> = surface_manager.surfaces().collect();
+        if let Some(_surface) = surfaces.iter().find(|s| s.id() == surface_id) {
             debug!("Set texture for surface {:?} and mapped it", surface_id);
             Ok(())
         } else {
-            Err(BlitzSmithayError::SurfaceError(crate::SurfaceError::SurfaceNotFound))
+            Err(BlitzSmithayError::SurfaceError(SurfaceError::SurfaceNotFound))
         }
     }
     
@@ -185,7 +183,13 @@ impl SurfaceCompositor {
         let mut surface_manager = self.surface_manager
             .lock()
             .map_err(|_| BlitzSmithayError::ResourceManagerLocked)?;
-        surface_manager.track_damage(surface_id, damage);
+        let converted_damage: Vec<crate::coordinate_mapper::Rectangle<i32, i32>> = damage.iter().map(|rect| {
+            crate::coordinate_mapper::Rectangle::from_loc_and_size(
+                crate::coordinate_mapper::Point::new(rect.loc.x, rect.loc.y),
+                crate::coordinate_mapper::Size::new(rect.size.w, rect.size.h)
+            )
+        }).collect();
+        surface_manager.track_damage(surface_id, &converted_damage);
         Ok(())
     }
     

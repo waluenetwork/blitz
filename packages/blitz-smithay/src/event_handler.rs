@@ -3,17 +3,22 @@ use tracing::debug;
 
 use smithay::{
     backend::input::{
-        Event, InputBackend, KeyboardKeyEvent, PointerButtonEvent, PointerMotionEvent,
+        InputBackend, KeyboardKeyEvent, PointerButtonEvent, PointerMotionEvent,
         PointerAxisEvent, TouchDownEvent, TouchUpEvent, TouchMotionEvent,
-        KeyState as SmithayKeyState, ButtonState, Axis, AxisSource, AxisRelativeDirection,
+        KeyState as SmithayKeyState, ButtonState, Axis, AxisSource,
     },
     input::{
-        keyboard::{KeyboardHandle, KeysymHandle, ModifiersState},
-        pointer::{PointerHandle, ButtonEvent, MotionEvent},
-        touch::{TouchHandle, DownEvent, UpEvent, MotionEvent as TouchMotion},
+        keyboard::ModifiersState,
     },
     utils::{Logical, Point},
 };
+
+#[derive(Debug, Clone)]
+pub enum BlitzEvent {
+    Mouse(UiEvent),
+    Keyboard(UiEvent),
+    Touch(UiEvent),
+}
 
 use blitz_traits::events::{
     BlitzKeyEvent, KeyState, UiEvent, BlitzMouseButtonEvent, MouseEventButton, MouseEventButtons,
@@ -127,7 +132,7 @@ impl WaylandEventHandler {
             let mut queue = self.event_queue
                 .lock()
                 .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
-            queue.push(BlitzEvent::Mouse(blitz_event));
+            queue.push(UiEvent::MouseDown(blitz_event));
         }
         
         Ok(())
@@ -137,8 +142,7 @@ impl WaylandEventHandler {
         &mut self,
         event: &impl PointerAxisEvent<B>,
     ) -> Result<(), BlitzSmithayError> {
-        debug!("Handling pointer axis event: axis={:?} value={}", 
-               event.axis(), event.amount());
+        debug!("Handling pointer axis event");
         
         let blitz_event = self.smithay_pointer_axis_to_blitz(event)?;
         
@@ -146,7 +150,7 @@ impl WaylandEventHandler {
             let mut queue = self.event_queue
                 .lock()
                 .map_err(|_| BlitzSmithayError::EventQueueLocked)?;
-            queue.push(UiEvent::MouseMove(blitz_event));
+            queue.push(UiEvent::MouseDown(blitz_event));
         }
         
         Ok(())
@@ -173,11 +177,11 @@ impl WaylandEventHandler {
     
     pub fn handle_touch_up_event<B: InputBackend>(
         &mut self,
-        event: &impl TouchUpEvent<B>,
+        _event: &impl TouchUpEvent<B>,
     ) -> Result<(), BlitzSmithayError> {
-        debug!("Handling touch up event: slot={:?}", event.slot());
+        debug!("Handling touch up event: slot={:?}", _event.slot());
         
-        let blitz_event = self.smithay_touch_up_to_blitz(event)?;
+        let blitz_event = self.smithay_touch_up_to_blitz(_event)?;
         
         {
             let mut queue = self.event_queue
@@ -225,8 +229,8 @@ impl WaylandEventHandler {
             SmithayKeyState::Released => KeyState::Released,
         };
         
-        let code = self.smithay_keycode_to_blitz_code(key_code);
-        let key = self.smithay_keycode_to_blitz_key(key_code);
+        let code = self.smithay_keycode_to_blitz_code(key_code.into());
+        let key = self.smithay_keycode_to_blitz_key(key_code.into());
         let modifiers = self.smithay_modifiers_to_blitz_modifiers();
         
         Ok(BlitzKeyEvent {
@@ -245,8 +249,8 @@ impl WaylandEventHandler {
         &self,
         event: &impl PointerButtonEvent<B>,
     ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
-        let button = self.smithay_button_to_blitz_button(event.button_code());
-        let pressed = match event.state() {
+        let _button = self.smithay_button_to_blitz_button(event.button_code());
+        let _pressed = match event.state() {
             ButtonState::Pressed => true,
             ButtonState::Released => false,
         };
@@ -277,7 +281,7 @@ impl WaylandEventHandler {
         &self,
         event: &impl PointerAxisEvent<B>,
     ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
-        let (delta_x, delta_y) = match event.source() {
+        let (_delta_x, _delta_y) = match event.source() {
             AxisSource::Wheel | AxisSource::WheelTilt => {
                 let delta_x = event.amount(Axis::Horizontal).unwrap_or(0.0);
                 let delta_y = event.amount(Axis::Vertical).unwrap_or(0.0);
@@ -287,13 +291,12 @@ impl WaylandEventHandler {
                 let delta_x = event.amount(Axis::Horizontal).unwrap_or(0.0);
                 let delta_y = event.amount(Axis::Vertical).unwrap_or(0.0);
                 (delta_x, delta_y)
-            },
-            _ => (0.0, 0.0),
+            }
         };
         
         Ok(BlitzMouseButtonEvent {
-            x: delta_x as f32,
-            y: delta_y as f32,
+            x: _delta_x as f32,
+            y: _delta_y as f32,
             button: MouseEventButton::Main,
             buttons: MouseEventButtons::None,
             mods: self.smithay_modifiers_to_blitz_modifiers(),
@@ -315,7 +318,7 @@ impl WaylandEventHandler {
     
     fn smithay_touch_up_to_blitz<B: InputBackend>(
         &self,
-        event: &impl TouchUpEvent<B>,
+        _event: &impl TouchUpEvent<B>,
     ) -> Result<BlitzMouseButtonEvent, BlitzSmithayError> {
         Ok(BlitzMouseButtonEvent {
             x: 0.0,

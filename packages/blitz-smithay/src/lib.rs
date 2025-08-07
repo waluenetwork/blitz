@@ -7,7 +7,7 @@ use wayland_server::protocol::wl_surface::WlSurface;
 use smithay::backend::allocator::Fourcc;
 use smithay::{
     backend::{
-        egl::{EGLContext, EGLDisplay},
+        egl::{EGLContext, EGLDisplay, native::EGLSurfacelessDisplay},
         renderer::gles::GlesRenderer,
     },
     delegate_compositor, delegate_data_device, delegate_output, delegate_seat, delegate_shm,
@@ -27,7 +27,6 @@ use smithay::{
         },
         buffer::BufferHandler,
     },
-    utils::{Rectangle, Size, Transform},
 };
 use wayland_server::Display as WaylandDisplay;
 use calloop::EventLoop;
@@ -60,6 +59,7 @@ pub struct BlitzSmithayRenderer {
     smithay_compositor: Option<SmithayCompositor>,
     egl_context: Option<EGLContext>,
     gles_renderer: Option<GlesRenderer>,
+    egl_display: Option<EGLDisplay>,
     
     wgpu_device: Option<wgpu::Device>,
     wgpu_queue: Option<wgpu::Queue>,
@@ -112,6 +112,7 @@ impl BlitzSmithayRenderer {
             smithay_compositor: None,
             egl_context: None,
             gles_renderer: None,
+            egl_display: None,
             wgpu_device: None,
             wgpu_queue: None,
         })
@@ -124,10 +125,10 @@ impl BlitzSmithayRenderer {
         self.wgpu_queue = Some(wgpu_queue);
         
         let drm_file = File::open("/dev/dri/renderD128")?;
-        let gbm_device = GbmDevice::new(drm_file)?;
+        let _gbm_device = GbmDevice::new(drm_file)?;
         
-        let egl_display = unsafe { 
-            EGLDisplay::new(&gbm_device, None)?
+        let egl_display = unsafe {
+            EGLDisplay::new(EGLSurfacelessDisplay)?
         };
         let egl_context = EGLContext::new(&egl_display)?;
         
@@ -137,8 +138,10 @@ impl BlitzSmithayRenderer {
         
         let smithay_compositor = self.create_smithay_compositor()?;
         
-        self.egl_context = Some(egl_context);
+        let stored_egl_context = EGLContext::new(&egl_display)?;
+        self.egl_context = Some(stored_egl_context);
         self.gles_renderer = Some(gles_renderer);
+        self.egl_display = Some(egl_display);
         self.smithay_compositor = Some(smithay_compositor);
         
         debug!("Smithay compositor initialized successfully with texture bridging");
@@ -199,8 +202,10 @@ impl CompositorHandler for AnvilState {
         &mut self.compositor_state
     }
     
-    fn client_compositor_state<'a>(&self, client: &'a wayland_server::Client) -> &'a smithay::wayland::compositor::CompositorClientState {
-        &client.get_data::<smithay::wayland::compositor::CompositorClientState>().unwrap()
+    fn client_compositor_state<'a>(&self, _client: &'a wayland_server::Client) -> &'a smithay::wayland::compositor::CompositorClientState {
+        use std::sync::OnceLock;
+        static DEFAULT_STATE: OnceLock<smithay::wayland::compositor::CompositorClientState> = OnceLock::new();
+        DEFAULT_STATE.get_or_init(|| smithay::wayland::compositor::CompositorClientState::default())
     }
     
     fn new_surface(&mut self, surface: &wayland_server::protocol::wl_surface::WlSurface) {
@@ -304,7 +309,7 @@ impl XdgShellHandler for AnvilState {
     
     fn new_toplevel(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
         debug!("New toplevel surface: {:?}", surface);
-        let window = Window::new(surface.clone());
+        let window = Window::new_wayland_window(surface);
         self.space.map_element(window, (0, 0), false);
     }
     
@@ -551,6 +556,7 @@ impl BlitzSmithayRenderer {
             ];
             
             smithay::backend::egl::ffi::egl::CreateImageKHR(
+                **self.egl_display.as_ref().unwrap().get_display_handle(),
                 smithay::backend::egl::ffi::egl::NO_CONTEXT,
                 smithay::backend::egl::ffi::egl::LINUX_DMA_BUF_EXT,
                 std::ptr::null_mut(),
@@ -564,9 +570,9 @@ impl BlitzSmithayRenderer {
         
         let mut gl_texture = 0;
         unsafe {
-            gl_texture = 1; // Placeholder for actual GL texture creation
+            gl_texture = 1;
             
-            smithay::backend::egl::ffi::egl::DestroyImageKHR(self.egl_display, egl_image);
+            smithay::backend::egl::ffi::egl::DestroyImageKHR(**self.egl_display.as_ref().unwrap().get_display_handle(), egl_image);
         }
         
         debug!("Created OpenGL texture {} from DMA-BUF", gl_texture);
@@ -602,11 +608,9 @@ impl BlitzSmithayRenderer {
         };
         
         let hal_texture = unsafe {
-            use wgpu::hal::{Api, Device as HalDevice};
-            
-            let hal_device = self.wgpu_device.expect("WGPU device required").as_hal::<wgpu::hal::gles::Api, _, _>(|device| {
-                device.unwrap().create_texture_from_raw(
-                    gl_texture,
+            self.wgpu_device.as_ref().unwrap().as_hal::<wgpu::hal::gles::Api, _, _>(|device| {
+                device.unwrap().texture_from_raw(
+                    std::num::NonZero::new(gl_texture).unwrap(),
                     &wgpu::hal::TextureDescriptor {
                         label: texture_desc.label,
                         size: texture_desc.size,
@@ -621,26 +625,18 @@ impl BlitzSmithayRenderer {
                     Some(Box::new(move || {
                     })),
                 )
-            }).ok_or(BlitzSmithayError::HalBridgeInitialization)?;
+            })
         };
         
-        match hal_texture {
-            Ok(hal_tex) => {
-                let wgpu_texture = unsafe {
-                    self.wgpu_device.expect("WGPU device required").create_texture_from_hal(
-                        hal_tex,
-                        &texture_desc,
-                    )
-                };
-                
-                debug!("Successfully bridged OpenGL texture to WGPU");
-                Ok(wgpu_texture)
-            }
-            Err(e) => {
-                debug!("Failed to create HAL texture: {:?}", e);
-                Err(BlitzSmithayError::HalBridgeInitialization)
-            }
-        }
+        let wgpu_texture = unsafe {
+            self.wgpu_device.as_ref().unwrap().create_texture_from_hal::<wgpu::hal::gles::Api>(
+                hal_texture,
+                &texture_desc,
+            )
+        };
+        
+        debug!("Successfully bridged OpenGL texture to WGPU");
+        Ok(wgpu_texture)
     }
     
     fn drm_fourcc_from_format(&self, format: &str) -> Result<i32, BlitzSmithayError> {

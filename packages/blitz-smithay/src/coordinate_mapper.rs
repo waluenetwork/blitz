@@ -26,6 +26,10 @@ pub struct Size<T, U = ()> {
 }
 
 impl<T, U> Size<T, U> {
+    pub fn new(w: T, h: T) -> Self {
+        Self { w, h, _phantom: std::marker::PhantomData }
+    }
+    
     pub fn from(tuple: (T, T)) -> Self {
         Self { w: tuple.0, h: tuple.1, _phantom: std::marker::PhantomData }
     }
