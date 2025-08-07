@@ -924,6 +924,7 @@ dependencies = [
  "egl",
  "gbm 0.15.0",
  "indexmap",
+ "keyboard-types",
  "kurbo",
  "lru",
  "smithay",
