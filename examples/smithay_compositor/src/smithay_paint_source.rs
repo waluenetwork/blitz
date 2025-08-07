@@ -147,12 +147,46 @@ impl CompositorHandler for SmithayApp {
         
         let surface_id = ObjectId::new();
         
-        if let Some(ref surface_compositor) = self.surface_compositor {
-            if let Err(e) = surface_compositor.lock().unwrap().add_surface(surface_id) {
-                debug!("Failed to add surface to compositor: {:?}", e);
-            } else {
-                debug!("Added surface {:?} to compositor", surface_id);
+        if let Some(buffer) = surface.current_buffer() {
+            debug!("Surface has buffer attached");
+            
+            if let Ok(buffer_data) = smithay::wayland::shm::with_buffer_contents(&buffer, |data, spec| {
+                debug!("Buffer data - format: {:?}, width: {}, height: {}, stride: {}", 
+                       spec.format, spec.width, spec.height, spec.stride);
                 
+                let format = match spec.format {
+                    smithay::wayland::shm::Format::Argb8888 => "ARGB8888",
+                    smithay::wayland::shm::Format::Xrgb8888 => "XRGB8888", 
+                    smithay::wayland::shm::Format::Rgba8888 => "RGBA8888",
+                    smithay::wayland::shm::Format::Bgra8888 => "BGRA8888",
+                    _ => "RGBA8888", // fallback
+                };
+                
+                let texture = crate::BlitzTexture::new(spec.width, spec.height, format.to_string());
+                Ok(texture)
+            }) {
+                if let Ok(texture) = buffer_data {
+                    if let Some(ref surface_compositor) = self.surface_compositor {
+                        let mut compositor = surface_compositor.lock().unwrap();
+                        if let Err(e) = compositor.add_surface(surface_id) {
+                            debug!("Failed to add surface to compositor: {:?}", e);
+                        } else if let Err(e) = compositor.set_surface_texture(surface_id, texture) {
+                            debug!("Failed to set surface texture: {:?}", e);
+                        } else {
+                            debug!("Successfully added surface {:?} with texture", surface_id);
+                        }
+                    }
+                }
+            } else {
+                debug!("Failed to extract buffer data");
+            }
+        } else {
+            if let Some(ref surface_compositor) = self.surface_compositor {
+                if let Err(e) = surface_compositor.lock().unwrap().add_surface(surface_id) {
+                    debug!("Failed to add surface to compositor: {:?}", e);
+                } else {
+                    debug!("Added surface {:?} to compositor (no buffer)", surface_id);
+                }
             }
         }
         

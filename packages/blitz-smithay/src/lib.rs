@@ -586,7 +586,7 @@ impl BlitzSmithayRenderer {
         
         let mut gl_texture = 0;
         unsafe {
-            gl_texture = 1;
+            gl_texture = egl_image as u32;
             
             smithay::backend::egl::ffi::egl::DestroyImageKHR(**self.egl_display.as_ref().unwrap().get_display_handle(), egl_image);
         }
