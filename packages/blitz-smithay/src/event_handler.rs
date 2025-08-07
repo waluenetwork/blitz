@@ -4,7 +4,7 @@ use tracing::debug;
 use smithay::{
     backend::input::{
         Event, InputBackend, KeyboardKeyEvent, PointerButtonEvent, PointerMotionEvent,
-        PointerAxisEvent, TouchDownEvent, TouchUpEvent,
+        PointerAxisEvent, TouchDownEvent, TouchUpEvent, TouchMotionEvent,
         KeyState as SmithayKeyState, ButtonState, Axis, AxisSource,
     },
     input::{
@@ -16,10 +16,52 @@ use smithay::{
 };
 
 use blitz_traits::events::{
-    BlitzKeyEvent, KeyState,
+    BlitzKeyEvent, KeyState, UiEvent as BlitzEvent,
 };
+use keyboard_types::{Code, Key, Location, Modifiers};
 
 use crate::error::BlitzSmithayError;
+
+#[derive(Debug, Clone)]
+pub struct BlitzMouseEvent {
+    pub button: MouseButton,
+    pub pressed: bool,
+    pub position: Point<f64, Logical>,
+    pub modifiers: Modifiers,
+}
+
+#[derive(Debug, Clone)]
+pub struct BlitzScrollEvent {
+    pub delta_x: f64,
+    pub delta_y: f64,
+    pub position: Point<f64, Logical>,
+    pub modifiers: Modifiers,
+}
+
+#[derive(Debug, Clone)]
+pub struct BlitzTouchEvent {
+    pub id: u64,
+    pub phase: TouchPhase,
+    pub position: Point<f64, Logical>,
+    pub force: Option<f64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
+    Other(u16),
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TouchPhase {
+    Started,
+    Moved,
+    Ended,
+    Cancelled,
+}
 
 pub struct WaylandEventHandler {
     event_queue: Arc<Mutex<Vec<BlitzEvent>>>,

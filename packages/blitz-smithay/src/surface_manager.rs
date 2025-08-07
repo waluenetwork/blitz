@@ -41,7 +41,7 @@ impl WaylandSurfaceManager {
         Ok(())
     }
     
-    pub fn track_damage(&mut self, surface_id: ObjectId, damage: &[Rectangle<i32>]) {
+    pub fn track_damage(&mut self, surface_id: ObjectId, damage: &[Rectangle<i32, smithay::utils::Logical>]) {
         debug!("DEBUG: Tracking damage for surface {:?} - {} rectangles", surface_id, damage.len());
         
         self.damage_tracker.track_surface_damage(surface_id, damage.to_vec());
@@ -136,7 +136,7 @@ pub struct WaylandSurface {
     state: SurfaceState,
     transform: Transform,
     scale: f64,
-    damage_regions: Vec<Rectangle<i32>>,
+    damage_regions: Vec<Rectangle<i32, smithay::utils::Logical>>,
     opacity: f32,
     blend_mode: BlendMode,
     buffer_age: u32,
@@ -175,11 +175,11 @@ impl WaylandSurface {
         self.buffer_age += 1;
     }
     
-    pub fn get_damage_regions(&self) -> Vec<Rectangle<i32>> {
+    pub fn get_damage_regions(&self) -> Vec<Rectangle<i32, smithay::utils::Logical>> {
         self.damage_regions.clone()
     }
     
-    pub fn add_damage_region(&mut self, region: Rectangle<i32>) {
+    pub fn add_damage_region(&mut self, region: Rectangle<i32, smithay::utils::Logical>) {
         debug!("Adding damage region {:?} to surface {:?}", region, self.id);
         self.damage_regions.push(region);
     }
@@ -236,8 +236,8 @@ pub enum BlendMode {
 }
 
 pub struct SurfaceDamageTracker {
-    surface_damages: HashMap<ObjectId, Vec<Rectangle<i32>>>,
-    accumulated_damage: Vec<Rectangle<i32>>,
+    surface_damages: HashMap<ObjectId, Vec<Rectangle<i32, smithay::utils::Logical>>>,
+    accumulated_damage: Vec<Rectangle<i32, smithay::utils::Logical>>,
 }
 
 impl SurfaceDamageTracker {
@@ -251,7 +251,7 @@ impl SurfaceDamageTracker {
     }
     
     fn track_surface_damage(&mut self, surface_id: ObjectId, 
-                           damage: Vec<Rectangle<i32>>) {
+                           damage: Vec<Rectangle<i32, smithay::utils::Logical>>) {
         debug!("Tracking {} damage rectangles for surface {:?}", 
                damage.len(), surface_id);
         
@@ -270,7 +270,7 @@ impl SurfaceDamageTracker {
         }
     }
     
-    pub fn get_accumulated_damage(&self) -> &[Rectangle<i32>] {
+    pub fn get_accumulated_damage(&self) -> &[Rectangle<i32, smithay::utils::Logical>] {
         &self.accumulated_damage
     }
     
@@ -446,7 +446,7 @@ pub struct RenderElement {
     pub transform: Transform,
     pub scale: f64,
     pub z_index: i32,
-    pub damage_regions: Vec<Rectangle<i32>>,
+    pub damage_regions: Vec<Rectangle<i32, smithay::utils::Logical>>,
     pub opacity: f32,
     pub blend_mode: BlendMode,
 }
