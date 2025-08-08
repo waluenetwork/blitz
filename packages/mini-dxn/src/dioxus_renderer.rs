@@ -6,12 +6,18 @@ use anyrender::WindowRenderer;
 
 #[cfg(feature = "gpu")]
 pub use anyrender_vello::{
-    CustomPaintSource, VelloWindowRenderer as InnerRenderer,
+    CustomPaintSource, VelloWindowRenderer,
     wgpu::{Features, Limits},
 };
 
-#[cfg(all(feature = "cpu-base", not(feature = "gpu")))]
-use anyrender_vello_cpu::VelloCpuWindowRenderer as InnerRenderer;
+#[cfg(feature = "gpu")]
+type InnerRenderer = VelloWindowRenderer;
+
+#[cfg(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))]
+use anyrender_vello_cpu::VelloCpuWindowRenderer;
+
+#[cfg(all(any(feature = "cpu-pixels", feature = "cpu-softbuffer"), not(feature = "gpu")))]
+type InnerRenderer = VelloCpuWindowRenderer;
 
 #[cfg(feature = "gpu")]
 pub fn use_wgpu<T: CustomPaintSource>(create_source: impl FnOnce() -> T) -> u64 {
