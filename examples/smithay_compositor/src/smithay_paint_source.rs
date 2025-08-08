@@ -260,6 +260,10 @@ impl CompositorHandler for SmithayApp {
                         } else if let Err(e) = compositor.set_surface_texture(surface_id, texture) {
                             debug!("Failed to set surface texture: {:?}", e);
                         } else {
+                            match compositor.get_surface_count() {
+                                Ok(count) => debug!("Surface added. Current surface_count: {}", count),
+                                Err(e) => debug!("Failed to get surface count after add: {:?}", e),
+                            }
                             let full_rect = SRect::from_loc_and_size(
                                 SPoint::from((0, 0)),
                                 SSize::from((width as i32, height as i32)),
@@ -560,7 +564,12 @@ impl SmithayPaintSource {
         #[cfg(feature = "smithay-backend")]
         if let Some(state) = wayland_state {
             if let Some(ref app_state) = state.app_state.surface_compositor {
-                if let Err(e) = app_state.lock().unwrap().render_surfaces_to_wgpu_texture(target_texture) {
+                let mut guard = app_state.lock().unwrap();
+                match guard.get_surface_count() {
+                    Ok(count) => debug!("SurfaceCompositor surface_count before render: {}", count),
+                    Err(e) => debug!("Failed to get surface count: {:?}", e),
+                }
+                if let Err(e) = guard.render_surfaces_to_wgpu_texture(target_texture) {
                     debug!("Error rendering surfaces to WGPU texture: {:?}", e);
                 } else {
                     debug!("Successfully rendered Wayland surfaces to WGPU texture");
