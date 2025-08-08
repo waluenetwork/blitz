@@ -437,11 +437,13 @@ impl CustomPaintSource for SmithayPaintSource {
             }
         }
         
+        debug!("DEBUG: About to create SurfaceCompositor with device and queue");
         let surface_compositor = SurfaceCompositor::new(
             device_handle.device.clone(),
             device_handle.queue.clone(),
             Size::from((800, 600)),
         );
+        debug!("DEBUG: SurfaceCompositor::new completed successfully");
         self.surface_compositor = Some(Arc::new(Mutex::new(surface_compositor)));
         debug!("DEBUG: Created SurfaceCompositor for SmithayPaintSource - compositor field initialized");
         
