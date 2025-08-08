@@ -443,7 +443,7 @@ impl CustomPaintSource for SmithayPaintSource {
             Size::from((800, 600)),
         );
         self.surface_compositor = Some(Arc::new(Mutex::new(surface_compositor)));
-        debug!("DEBUG: Created SurfaceCompositor for SmithayPaintSource");
+        debug!("DEBUG: Created SurfaceCompositor for SmithayPaintSource - compositor field initialized");
         
         self.setup_wayland_compositor();
     }
@@ -849,7 +849,7 @@ impl SmithayPaintSource {
             );
             
             let _blitz_texture = BlitzTexture::from_wgpu_texture(texture);
-            debug!("Successfully created mock surface texture with BlitzTexture");
+            debug!("Mock surface texture created - surface compositor integration pending");
         }
     }
     
@@ -902,6 +902,7 @@ impl SmithayPaintSource {
             let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
             debug!("Successfully created mock surface texture with BlitzTexture");
             
+            debug!("Checking surface_compositor availability: {}", self.surface_compositor.is_some());
             if let Some(ref surface_compositor) = self.surface_compositor {
                 let surface_id = ObjectId::new();
                 debug!("Adding mock surface {:?} to compositor", surface_id);
