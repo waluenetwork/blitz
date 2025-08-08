@@ -17,7 +17,6 @@ use std::any::Any;
 
 #[cfg(feature = "gpu")]
 pub use anyrender_vello::wgpu::{Features, Limits};
-#[cfg(feature = "gpu")]
 pub use dioxus_renderer::use_wgpu;
 
 pub use dioxus_document::DioxusDocument;
