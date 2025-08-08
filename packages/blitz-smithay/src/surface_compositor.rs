@@ -136,7 +136,7 @@ impl SurfaceCompositor {
         }
     }
     
-    pub fn set_gles_renderer(&mut self, renderer: &GlesRenderer) {
+    pub fn set_gles_renderer(&mut self, _renderer: &GlesRenderer) {
         debug!("Setting GlesRenderer for surface compositor");
         debug!("GlesRenderer reference received but cannot be stored due to lifetime constraints");
     }
