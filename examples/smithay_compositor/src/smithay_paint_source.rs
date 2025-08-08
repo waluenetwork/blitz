@@ -499,31 +499,47 @@ impl SmithayPaintSource {
     }
     
     fn render_compositor_content(&mut self, mut ctx: CustomPaintCtx<'_>, width: u32, height: u32) -> Option<TextureHandle> {
+        debug!("render_compositor_content called with dimensions {}x{}", width, height);
+        
         if width == 0 || height == 0 {
+            debug!("Skipping render: invalid dimensions {}x{}", width, height);
             return None;
         }
         
         let SmithayRendererState::Active(state) = &mut self.state else {
+            debug!("Skipping render: renderer not active");
             return None;
         };
         
         let needs_new_texture = match &state.next_texture {
-            Some(next) => next.texture.width() != width || next.texture.height() != height,
-            None => true,
+            Some(next) => {
+                let needs_new = next.texture.width() != width || next.texture.height() != height;
+                debug!("Existing texture {}x{}, needs new: {}", next.texture.width(), next.texture.height(), needs_new);
+                needs_new
+            }
+            None => {
+                debug!("No existing texture, creating new one");
+                true
+            }
         };
         
         if needs_new_texture {
             if let Some(old) = &state.next_texture {
+                debug!("Unregistering old texture handle");
                 ctx.unregister_texture(old.handle);
             }
             
+            debug!("Creating new compositor texture {}x{}", width, height);
             let texture = create_compositor_texture(&state.device, width, height);
             let handle = ctx.register_texture(texture.clone());
+            debug!("Registered new texture handle");
             state.next_texture = Some(TextureAndHandle { texture, handle });
         }
         
         let texture_handle = state.next_texture.as_ref().unwrap().handle;
         let target_texture = state.next_texture.as_ref().unwrap().texture.clone();
+        
+        debug!("About to render to texture");
         
         let device = state.device.clone();
         let queue = state.queue.clone();
@@ -531,11 +547,12 @@ impl SmithayPaintSource {
         Self::render_to_texture(&device, &queue, &target_texture, &self.wayland_state, &self.surface_compositor);
         
         std::mem::swap(&mut state.next_texture, &mut state.displayed_texture);
+        debug!("Returning texture handle");
         Some(texture_handle)
     }
     
     fn render_to_texture(device: &wgpu::Device, queue: &wgpu::Queue, target_texture: &wgpu::Texture, _wayland_state: &Option<WaylandCompositorState>, surface_compositor: &Option<Arc<Mutex<SurfaceCompositor>>>) {
-        debug!("Rendering Smithay compositor content to WGPU texture");
+        debug!("Rendering Smithay compositor content to WGPU texture {}x{}", target_texture.width(), target_texture.height());
         
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Smithay Compositor Render"),
@@ -558,6 +575,7 @@ impl SmithayPaintSource {
                 occlusion_query_set: None,
             });
         }
+        debug!("Background cleared with dark blue color");
         
         let mut surfaces_rendered = false;
         if let Some(ref compositor) = surface_compositor {
@@ -572,14 +590,18 @@ impl SmithayPaintSource {
                             debug!("Successfully rendered {} surfaces to WGPU texture", count);
                             surfaces_rendered = true;
                         }
+                    } else {
+                        debug!("No surfaces to render from SurfaceCompositor");
                     }
                 }
                 Err(e) => debug!("Failed to get surface count: {:?}", e),
             }
+        } else {
+            debug!("No SurfaceCompositor available");
         }
         
         if !surfaces_rendered {
-            debug!("No real surfaces available - rendering placeholder content");
+            debug!("Rendering bright blue placeholder content to show compositor is active");
             
             let view = target_texture.create_view(&wgpu::TextureViewDescriptor::default());
             let _rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -588,7 +610,7 @@ impl SmithayPaintSource {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.2, g: 0.3, b: 0.5, a: 1.0 }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.3, g: 0.5, b: 0.8, a: 1.0 }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -599,6 +621,7 @@ impl SmithayPaintSource {
         }
         
         queue.submit(Some(encoder.finish()));
+        debug!("Texture rendering completed and submitted to queue");
     }
     
     #[cfg(feature = "smithay-backend")]
