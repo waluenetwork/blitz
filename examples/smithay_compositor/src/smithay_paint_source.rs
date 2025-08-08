@@ -399,9 +399,15 @@ impl CustomPaintSource for SmithayPaintSource {
         let active_state = ActiveSmithayRenderer::new(device_handle);
         self.state = SmithayRendererState::Active(Box::new(active_state));
         
-        if let Ok(renderer) = BlitzSmithayRenderer::new() {
-            self.blitz_renderer = Some(renderer);
-            debug!("DEBUG: BlitzSmithayRenderer initialized in paint source");
+        if self.blitz_renderer.is_none() {
+            if let Ok(renderer) = BlitzSmithayRenderer::new() {
+                self.blitz_renderer = Some(renderer);
+                debug!("DEBUG: BlitzSmithayRenderer initialized in paint source");
+            } else {
+                debug!("DEBUG: Failed to initialize BlitzSmithayRenderer");
+            }
+        } else {
+            debug!("DEBUG: BlitzSmithayRenderer already initialized");
         }
         
         self.setup_wayland_compositor();

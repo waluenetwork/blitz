@@ -153,6 +153,7 @@ impl SurfaceCompositor {
                 .map_err(|_| BlitzSmithayError::ResourceManagerLocked)?;
             surface_manager.render_all_surfaces()
         };
+        debug!("Collected {} render elements for drawing", render_elements.len());
         
         if render_elements.is_empty() {
             debug!("No surfaces to render");
