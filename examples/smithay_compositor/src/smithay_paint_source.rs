@@ -166,57 +166,69 @@ impl CompositorHandler for SmithayApp {
                 debug!("Buffer data - format: {:?}, width: {}, height: {}, stride: {}", 
                        spec.format, spec.width, spec.height, spec.stride);
                 
-                let format = match spec.format {
-                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Argb8888 => "ARGB8888",
-                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Xrgb8888 => "XRGB8888", 
-                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Rgba8888 => "RGBA8888",
-                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Bgra8888 => "BGRA8888",
-                    _ => "RGBA8888", // fallback
+                let (wgpu_format, format_str) = match spec.format {
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Argb8888 => (wgpu::TextureFormat::Bgra8Unorm, "ARGB8888"),
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Xrgb8888 => (wgpu::TextureFormat::Bgra8Unorm, "XRGB8888"),
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Bgra8888 => (wgpu::TextureFormat::Bgra8Unorm, "BGRA8888"),
+                    smithay::reexports::wayland_server::protocol::wl_shm::Format::Rgba8888 => (wgpu::TextureFormat::Rgba8Unorm, "RGBA8888"),
+                    _ => (wgpu::TextureFormat::Rgba8Unorm, "RGBA8888"),
                 };
                 
                 if let Some(ref surface_compositor) = self.surface_compositor {
                     let compositor = surface_compositor.lock().unwrap();
                     let device = compositor.wgpu_device();
                     let queue = compositor.wgpu_queue();
-                        
-                        let wgpu_texture = device.create_texture(&wgpu::TextureDescriptor {
-                            label: Some("Wayland Surface Texture"),
-                            size: wgpu::Extent3d {
-                                width: spec.width as u32,
-                                height: spec.height as u32,
-                                depth_or_array_layers: 1,
-                            },
-                            mip_level_count: 1,
-                            sample_count: 1,
-                            dimension: wgpu::TextureDimension::D2,
-                            format: wgpu::TextureFormat::Rgba8Unorm,
-                            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
-                            view_formats: &[],
-                        });
-                        
-                        queue.write_texture(
-                            wgpu::ImageCopyTexture {
-                                texture: &wgpu_texture,
-                                mip_level: 0,
-                                origin: wgpu::Origin3d::ZERO,
-                                aspect: wgpu::TextureAspect::All,
-                            },
-                            unsafe { std::slice::from_raw_parts(data, len) },
-                            wgpu::ImageDataLayout {
-                                offset: 0,
-                                bytes_per_row: Some(spec.stride as u32),
-                                rows_per_image: Some(spec.height as u32),
-                            },
-                            wgpu::Extent3d {
-                                width: spec.width as u32,
-                                height: spec.height as u32,
-                                depth_or_array_layers: 1,
-                            },
-                        );
-                        
-                        let dmabuf_info = DmaBufInfo::new(0, spec.width as u32, spec.height as u32, format.to_string(), spec.stride as u32);
-                        let texture = BlitzTexture::from_wgpu_texture(wgpu_texture);
-                        Ok::<BlitzTexture, Box<dyn std::error::Error>>(texture)
+
+                    let width = spec.width as u32;
+                    let height = spec.height as u32;
+                    let src_stride = spec.stride as usize;
+                    
+                    let aligned_bpr = ((src_stride as u32 + 255) / 256) * 256;
+                    let mut padded_data = vec![0u8; aligned_bpr as usize * height as usize];
+                    let src = unsafe { std::slice::from_raw_parts(data, len) };
+                    for row in 0..height as usize {
+                        let src_off = row * src_stride;
+                        let dst_off = row * aligned_bpr as usize;
+                        let copy_len = std::cmp::min(src_stride, src.len().saturating_sub(src_off));
+                        padded_data[dst_off..dst_off + copy_len].copy_from_slice(&src[src_off..src_off + copy_len]);
+                    }
+                    
+                    let wgpu_texture = device.create_texture(&wgpu::TextureDescriptor {
+                        label: Some("Wayland Surface Texture"),
+                        size: wgpu::Extent3d {
+                            width,
+                            height,
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: wgpu_format,
+                        usage: wgpu::TextureUsages::TEXTURE_BINDING
+                            | wgpu::TextureUsages::COPY_DST
+                            | wgpu::TextureUsages::RENDER_ATTACHMENT,
+                        view_formats: &[],
+                    });
+                    
+                    queue.write_texture(
+                        wgpu::ImageCopyTexture {
+                            texture: &wgpu_texture,
+                            mip_level: 0,
+                            origin: wgpu::Origin3d::ZERO,
+                            aspect: wgpu::TextureAspect::All,
+                        },
+                        &padded_data,
+                        wgpu::ImageDataLayout {
+                            offset: 0,
+                            bytes_per_row: Some(aligned_bpr),
+                            rows_per_image: Some(height),
+                        },
+                        wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+                    );
+                    
+                    let _dmabuf_info = DmaBufInfo::new(0, width, height, format_str.to_string(), spec.stride as u32);
+                    let texture = BlitzTexture::from_wgpu_texture(wgpu_texture);
+                    Ok::<BlitzTexture, Box<dyn std::error::Error>>(texture)
                 } else {
                     Err("No SurfaceCompositor available".into())
                 }
