@@ -1,6 +1,6 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use blitz_smithay::{BlitzSmithayRenderer, BlitzTexture, SurfaceCompositor, ObjectId, Size};
+use blitz_smithay::{BlitzSmithayRenderer, SurfaceCompositor, Size};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
