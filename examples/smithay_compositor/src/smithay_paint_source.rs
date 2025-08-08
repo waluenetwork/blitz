@@ -132,8 +132,6 @@ impl ClientData for ClientState {
 }
 
 #[cfg(feature = "smithay-backend")]
-impl BufferHandler for SmithayApp {
-#[cfg(feature = "smithay-backend")]
 impl SmithayApp {
     fn get_or_create_surface_id(&mut self, surface: &WlSurface) -> ObjectId {
         let key = surface.id().protocol_id();
@@ -147,6 +145,8 @@ impl SmithayApp {
     }
 }
 
+#[cfg(feature = "smithay-backend")]
+impl BufferHandler for SmithayApp {
     fn buffer_destroyed(&mut self, _buffer: &wl_buffer::WlBuffer) {}
 }
 
@@ -246,12 +246,12 @@ impl CompositorHandler for SmithayApp {
                     
                     let _dmabuf_info = DmaBufInfo::new(0, width, height, format_str.to_string(), spec.stride as u32);
                     let texture = BlitzTexture::from_wgpu_texture(wgpu_texture);
-                    Ok::<BlitzTexture, Box<dyn std::error::Error>>(texture)
+                    Ok::<(BlitzTexture, u32, u32), Box<dyn std::error::Error>>((texture, width, height))
                 } else {
                     Err("No SurfaceCompositor available".into())
                 }
             }) {
-                if let Ok(texture) = buffer_data {
+                if let Ok((texture, width, height)) = buffer_data {
                     if let Some(ref surface_compositor) = self.surface_compositor {
                         let mut compositor = surface_compositor.lock().unwrap();
                         if let Err(e) = compositor.add_surface(surface_id) {
@@ -259,8 +259,12 @@ impl CompositorHandler for SmithayApp {
                         } else if let Err(e) = compositor.set_surface_texture(surface_id, texture) {
                             debug!("Failed to set surface texture: {:?}", e);
                         } else {
-                            let full_rect = CmpRect::new(0, 0, spec.width as i32, spec.height as i32);
-                            if let Err(e) = compositor.track_damage(surface_id, &[full_rect]) {
+                            use blitz_smithay::coordinate_mapper::{Point, Size};
+                            let full_rect = CmpRect::from_loc_and_size(
+                                Point::new(0, 0),
+                                Size::new(width as i32, height as i32),
+                            );
+                            if let Err(e) = compositor.track_surface_damage(surface_id, &[full_rect]) {
                                 debug!("Failed to track damage for surface {:?}: {:?}", surface_id, e);
                             }
                             if let Err(e) = compositor.commit_surface(surface_id) {
