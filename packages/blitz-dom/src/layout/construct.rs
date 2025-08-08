@@ -209,8 +209,14 @@ pub(crate) fn collect_layout_children(
             }
 
             
+            // Check if this element has text content that needs inline layout
+            let has_text_content = doc.nodes[container_node_id].children.iter().any(|&child_id| {
+                let child = &doc.nodes[child_id];
+                matches!(child.data, NodeData::Text(_))
+            });
+            
             // TODO: fix display:contents
-            if all_inline {
+            if all_inline || has_text_content {
                 let (inline_layout, ilayout_children) = build_inline_layout(doc, container_node_id);
                 doc.nodes[container_node_id]
                     .flags
