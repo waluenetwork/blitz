@@ -535,7 +535,7 @@ impl SmithayPaintSource {
     }
     
     fn render_to_texture(device: &wgpu::Device, queue: &wgpu::Queue, target_texture: &wgpu::Texture, _wayland_state: &Option<WaylandCompositorState>, surface_compositor: &Option<Arc<Mutex<SurfaceCompositor>>>) {
-        debug!("Rendering real Smithay compositor content to WGPU texture");
+        debug!("Rendering Smithay compositor content to WGPU texture");
         
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Smithay Compositor Render"),
@@ -543,13 +543,13 @@ impl SmithayPaintSource {
         
         {
             let view = target_texture.create_view(&wgpu::TextureViewDescriptor::default());
-            let rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let _rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Smithay Compositor Background Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.05, g: 0.05, b: 0.1, a: 1.0 }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.1, b: 0.15, a: 1.0 }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -557,22 +557,45 @@ impl SmithayPaintSource {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            drop(rpass);
         }
         
+        let mut surfaces_rendered = false;
         if let Some(ref compositor) = surface_compositor {
             let mut guard = compositor.lock().unwrap();
             match guard.get_surface_count() {
-                Ok(count) => debug!("SurfaceCompositor surface_count before render: {}", count),
+                Ok(count) => {
+                    debug!("SurfaceCompositor surface_count before render: {}", count);
+                    if count > 0 {
+                        if let Err(e) = guard.render_surfaces_to_wgpu_texture(target_texture) {
+                            debug!("Error rendering surfaces to WGPU texture: {:?}", e);
+                        } else {
+                            debug!("Successfully rendered {} surfaces to WGPU texture", count);
+                            surfaces_rendered = true;
+                        }
+                    }
+                }
                 Err(e) => debug!("Failed to get surface count: {:?}", e),
             }
-            if let Err(e) = guard.render_surfaces_to_wgpu_texture(target_texture) {
-                debug!("Error rendering surfaces to WGPU texture: {:?}", e);
-            } else {
-                debug!("Successfully rendered surfaces to WGPU texture");
-            }
-        } else {
-            debug!("No surface compositor available for rendering");
+        }
+        
+        if !surfaces_rendered {
+            debug!("No real surfaces available - rendering placeholder content");
+            
+            let view = target_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            let _rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Smithay Compositor Placeholder Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.2, g: 0.3, b: 0.5, a: 1.0 }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
         }
         
         queue.submit(Some(encoder.finish()));
@@ -665,9 +688,11 @@ impl SmithayPaintSource {
 
     #[cfg(not(feature = "smithay-backend"))]
     fn setup_wayland_compositor(&mut self) {
-        debug!("DEBUG: Smithay backend not available - install libseat-dev and other system dependencies");
-        debug!("DEBUG: Run: sudo apt-get install libseat-dev libinput-dev libudev-dev");
-        debug!("DEBUG: Then rebuild with: cargo build --package smithay_compositor");
+        debug!("DEBUG: Smithay backend not available - running in demo mode");
+        debug!("DEBUG: To enable real Wayland compositor:");
+        debug!("DEBUG: 1. Install system dependencies: sudo apt-get install libseat-dev libinput-dev libudev-dev");
+        debug!("DEBUG: 2. Rebuild with smithay-backend: cargo build --package smithay_compositor --features smithay-backend");
+        debug!("DEBUG: 3. Run weston-terminal in the compositor");
         
         let socket_name = format!("wayland-blitz-{}", std::process::id());
         
@@ -678,7 +703,7 @@ impl SmithayPaintSource {
             start_time: Instant::now(),
         });
         
-        debug!("DEBUG: Wayland compositor setup completed (no real surfaces without smithay-backend)");
+        debug!("DEBUG: Demo mode active - compositor will show placeholder content");
     }
     
     #[cfg(feature = "smithay-backend")]

@@ -62,25 +62,36 @@ fn SmithayCompositor() -> Element {
 }
 
 const CSS: &str = r#"
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: #f0f0f0;
+}
+
 .container {
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 20px;
-    font-family: Arial, sans-serif;
-    background: #f0f0f0;
     min-height: 100vh;
+    width: 100%;
 }
 
 .overlay {
     position: absolute;
     top: 20px;
     left: 20px;
-    background: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.95);
     padding: 15px;
     border-radius: 8px;
     z-index: 10;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    min-width: 300px;
 }
 
 .canvas-container {
@@ -90,6 +101,7 @@ const CSS: &str = r#"
     border-radius: 8px;
     overflow: hidden;
     margin-top: 20px;
+    background: #000;
 }
 
 .compositor-canvas {
@@ -101,20 +113,29 @@ const CSS: &str = r#"
 h1 {
     color: #333;
     text-align: center;
-    margin-bottom: 20px;
+    margin: 0 0 20px 0;
+    font-size: 24px;
 }
 
 h2 {
     color: #666;
-    margin-top: 0;
+    margin: 0 0 10px 0;
+    font-size: 18px;
 }
 
 p {
     margin: 8px 0;
+    font-size: 14px;
+    line-height: 1.4;
 }
 
 .status {
     font-weight: bold;
     color: #2d5a27;
+}
+
+small {
+    font-size: 12px;
+    color: #888;
 }
 "#;
