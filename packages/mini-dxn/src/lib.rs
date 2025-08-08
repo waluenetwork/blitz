@@ -46,7 +46,7 @@ pub fn launch_cfg(
     let mut features = None;
     #[cfg(feature = "gpu")]
     let mut limits = None;
-    for cfg in platform_config {
+    for mut cfg in platform_config {
         #[cfg(feature = "gpu")]
         {
             cfg = match cfg.downcast::<Features>() {
