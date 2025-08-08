@@ -1,6 +1,15 @@
 //! 
 //!
 
+pub use surface_compositor::SurfaceCompositor;
+pub use surface_manager::{WaylandSurfaceManager, WaylandSurface};
+pub use resource_manager::ResourceManager;
+pub use coordinate_mapper::CoordinateMapper;
+pub use format_converter::FormatConverter;
+pub use error::BlitzSmithayError;
+
+pub type Size = smithay::utils::Size<i32, i32>;
+
 use std::sync::{Arc, Mutex};
 use tracing::debug;
 use wayland_server::protocol::wl_surface::WlSurface;
@@ -46,10 +55,8 @@ pub mod surface_compositor;
 pub use error::*;
 pub use format_converter::*;
 pub use coordinate_mapper::*;
-pub use resource_manager::*;
 pub use surface_manager::*;
 pub use event_handler::*;
-pub use surface_compositor::*;
 
 pub struct BlitzSmithayRenderer {
     format_converter: FormatConverter,

@@ -1,12 +1,11 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use blitz_smithay::{BlitzSmithayRenderer, BlitzTexture, SurfaceCompositor, ObjectId, DmaBufInfo, SmithayCompositor, AnvilState};
+use blitz_smithay::{BlitzSmithayRenderer, BlitzTexture, SurfaceCompositor, ObjectId, Size};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use wgpu;
 use wgpu::Instance;
-use std::collections::HashMap;
 use tracing::debug;
 
 #[derive(Clone)]
@@ -59,6 +58,7 @@ pub struct SmithayPaintSource {
     rx: Receiver<SmithayMessage>,
     blitz_renderer: Option<BlitzSmithayRenderer>,
     wayland_state: Option<WaylandCompositorState>,
+    surface_compositor: Option<Arc<Mutex<SurfaceCompositor>>>,
 }
 
 pub enum SmithayMessage {
@@ -437,6 +437,14 @@ impl CustomPaintSource for SmithayPaintSource {
             }
         }
         
+        let surface_compositor = SurfaceCompositor::new(
+            device_handle.device.clone(),
+            device_handle.queue.clone(),
+            Size::from((800, 600)),
+        );
+        self.surface_compositor = Some(Arc::new(Mutex::new(surface_compositor)));
+        debug!("DEBUG: Created SurfaceCompositor for SmithayPaintSource");
+        
         self.setup_wayland_compositor();
     }
 
@@ -464,6 +472,7 @@ impl SmithayPaintSource {
             rx,
             blitz_renderer: None,
             wayland_state: None,
+            surface_compositor: None,
         })
     }
     
@@ -529,13 +538,13 @@ impl SmithayPaintSource {
         let device = state.device.clone();
         let queue = state.queue.clone();
         
-        Self::render_to_texture(&device, &queue, &target_texture, &self.wayland_state);
+        Self::render_to_texture(&device, &queue, &target_texture, &self.wayland_state, &self.surface_compositor);
         
         std::mem::swap(&mut state.next_texture, &mut state.displayed_texture);
         Some(texture_handle)
     }
     
-    fn render_to_texture(device: &wgpu::Device, queue: &wgpu::Queue, target_texture: &wgpu::Texture, wayland_state: &Option<WaylandCompositorState>) {
+    fn render_to_texture(device: &wgpu::Device, queue: &wgpu::Queue, target_texture: &wgpu::Texture, _wayland_state: &Option<WaylandCompositorState>, surface_compositor: &Option<Arc<Mutex<SurfaceCompositor>>>) {
         debug!("Rendering real Smithay compositor content to WGPU texture");
         
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -561,20 +570,19 @@ impl SmithayPaintSource {
             drop(rpass);
         }
         
-        #[cfg(feature = "smithay-backend")]
-        if let Some(state) = wayland_state {
-            if let Some(ref app_state) = state.app_state.surface_compositor {
-                let mut guard = app_state.lock().unwrap();
-                match guard.get_surface_count() {
-                    Ok(count) => debug!("SurfaceCompositor surface_count before render: {}", count),
-                    Err(e) => debug!("Failed to get surface count: {:?}", e),
-                }
-                if let Err(e) = guard.render_surfaces_to_wgpu_texture(target_texture) {
-                    debug!("Error rendering surfaces to WGPU texture: {:?}", e);
-                } else {
-                    debug!("Successfully rendered Wayland surfaces to WGPU texture");
-                }
+        if let Some(ref compositor) = surface_compositor {
+            let mut guard = compositor.lock().unwrap();
+            match guard.get_surface_count() {
+                Ok(count) => debug!("SurfaceCompositor surface_count before render: {}", count),
+                Err(e) => debug!("Failed to get surface count: {:?}", e),
             }
+            if let Err(e) = guard.render_surfaces_to_wgpu_texture(target_texture) {
+                debug!("Error rendering surfaces to WGPU texture: {:?}", e);
+            } else {
+                debug!("Successfully rendered surfaces to WGPU texture");
+            }
+        } else {
+            debug!("No surface compositor available for rendering");
         }
         
         queue.submit(Some(encoder.finish()));
@@ -894,7 +902,36 @@ impl SmithayPaintSource {
             let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
             debug!("Successfully created mock surface texture with BlitzTexture");
             
-            debug!("Mock surface texture created - surface compositor integration pending");
+            if let Some(ref surface_compositor) = self.surface_compositor {
+                let surface_id = ObjectId::new();
+                debug!("Adding mock surface {:?} to compositor", surface_id);
+                
+                if let Err(e) = surface_compositor.lock().unwrap().add_surface(surface_id) {
+                    debug!("Failed to add mock surface to compositor: {:?}", e);
+                } else {
+                    debug!("Successfully added mock surface to compositor");
+                    
+                    if let Err(e) = surface_compositor.lock().unwrap().set_surface_texture(surface_id, blitz_texture) {
+                        debug!("Failed to set mock surface texture: {:?}", e);
+                    } else {
+                        debug!("Successfully set mock surface texture");
+                        
+                        if let Err(e) = surface_compositor.lock().unwrap().map_surface(surface_id) {
+                            debug!("Failed to map mock surface: {:?}", e);
+                        } else {
+                            debug!("Successfully mapped mock surface");
+                            
+                            if let Err(e) = surface_compositor.lock().unwrap().commit_surface(surface_id) {
+                                debug!("Failed to commit mock surface: {:?}", e);
+                            } else {
+                                debug!("Successfully committed mock surface");
+                            }
+                        }
+                    }
+                }
+            } else {
+                debug!("No surface compositor available for mock surface");
+            }
         }
     }
 }
