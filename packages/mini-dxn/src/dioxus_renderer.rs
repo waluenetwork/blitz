@@ -22,6 +22,7 @@ type InnerRenderer = VelloCpuWindowRenderer;
 #[cfg(not(any(feature = "gpu", feature = "cpu-pixels", feature = "cpu-softbuffer")))]
 type InnerRenderer = VelloWindowRenderer;
 
+#[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
 pub fn use_wgpu<T: CustomPaintSource>(create_source: impl FnOnce() -> T) -> u64 {
     use dioxus_core::prelude::{consume_context, use_hook_with_cleanup};
 

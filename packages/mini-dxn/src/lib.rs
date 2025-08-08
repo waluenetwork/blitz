@@ -17,6 +17,7 @@ use std::any::Any;
 
 #[cfg(feature = "gpu")]
 pub use anyrender_vello::wgpu::{Features, Limits};
+#[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
 pub use dioxus_renderer::use_wgpu;
 
 pub use dioxus_document::DioxusDocument;
