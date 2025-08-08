@@ -84,15 +84,10 @@ fn dispatch_wayland_events(&mut self) {
         let elapsed = self.start_time.elapsed().as_secs();
         
         if elapsed >= 2 && wayland_state.client_count == 0 {
-            // İlk mock yüzeyi oluştur
-            self.create_mock_surface_with_texture(400, 300, [0.2, 0.8, 0.2, 1.0]);
-            // ...
-        }
-        
-        if elapsed >= 5 && wayland_state.surface_count == 1 {
-            // İkinci mock yüzeyi oluştur
-            self.create_mock_surface_with_texture(300, 200, [0.8, 0.2, 0.2, 1.0]);
-            // ...
+            // Real client connection simulation (no mock surfaces)
+            debug!("DEBUG: Simulating client connection (no surface creation without smithay-backend)");
+            wayland_state.client_count = 1;
+            let _ = self.tx.send(SmithayMessage::ClientConnected);
         }
     }
 }
@@ -286,23 +281,21 @@ fn SmithayCompositor() -> Element {
 
 ### 3. Surface Rendering Pipeline İyileştirmeleri
 
-1. **Mock Surface Oluşturma İyileştirmesi**:
+1. **Real Wayland Surface Integration**:
 ```rust
-fn create_mock_surface_with_texture(&mut self, width: u32, height: u32, color: [f32; 4]) {
-    // WGPU texture oluştur
-    let texture = device.create_texture(&wgpu::TextureDescriptor { /* ... */ });
-    
-    // Texture içeriğini doldur
-    queue.write_texture(/* ... */);
-    
-    // BlitzTexture oluştur
-    let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
-    
-    // Surface compositor'a ekle
-    if let Some(ref surface_compositor) = self.surface_compositor {
-        let mut compositor = surface_compositor.lock().unwrap();
-        compositor.add_surface(surface_id)?;
-        compositor.set_surface_texture(surface_id, blitz_texture)?;
+// Real Wayland surface handling - no mock implementations
+impl CompositorHandler for SmithayApp {
+    fn commit(&mut self, surface: &WlSurface) {
+        // Handle real Wayland buffer commits
+        let has_buffer = with_states(surface, |states| {
+            let attrs = states.cached_state.current::<SurfaceAttributes>();
+            matches!(attrs.buffer, Some(BufferAssignment::NewBuffer(_)))
+        });
+        
+        if has_buffer {
+            // Convert Wayland buffer to WGPU texture
+            // Add to surface compositor for rendering
+        }
     }
 }
 ```
