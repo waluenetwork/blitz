@@ -400,14 +400,37 @@ impl CustomPaintSource for SmithayPaintSource {
         self.state = SmithayRendererState::Active(Box::new(active_state));
         
         if self.blitz_renderer.is_none() {
-            if let Ok(renderer) = BlitzSmithayRenderer::new() {
-                self.blitz_renderer = Some(renderer);
-                debug!("DEBUG: BlitzSmithayRenderer initialized in paint source");
-            } else {
-                debug!("DEBUG: Failed to initialize BlitzSmithayRenderer");
+            match BlitzSmithayRenderer::new() {
+                Ok(mut renderer) => {
+                    if let Err(e) = renderer.initialize_compositor(
+                        device_handle.device.clone(),
+                        device_handle.queue.clone(),
+                    ) {
+                        debug!("DEBUG: Failed to initialize Smithay compositor: {:?}", e);
+                    } else {
+                        debug!("DEBUG: BlitzSmithayRenderer initialized with WGPU device/queue");
+                    }
+                    self.blitz_renderer = Some(renderer);
+                }
+                Err(e) => {
+                    debug!("DEBUG: Failed to create BlitzSmithayRenderer: {:?}", e);
+                }
             }
         } else {
-            debug!("DEBUG: BlitzSmithayRenderer already initialized");
+            if let Some(renderer) = self.blitz_renderer.as_mut() {
+                if renderer.wgpu_device().is_none() || renderer.wgpu_queue().is_none() {
+                    if let Err(e) = renderer.initialize_compositor(
+                        device_handle.device.clone(),
+                        device_handle.queue.clone(),
+                    ) {
+                        debug!("DEBUG: Failed to initialize Smithay compositor (existing renderer): {:?}", e);
+                    } else {
+                        debug!("DEBUG: Initialized existing BlitzSmithayRenderer with WGPU device/queue");
+                    }
+                } else {
+                    debug!("DEBUG: BlitzSmithayRenderer already initialized");
+                }
+            }
         }
         
         self.setup_wayland_compositor();
