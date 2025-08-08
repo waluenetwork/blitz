@@ -54,6 +54,17 @@ impl WaylandSurfaceManager {
         self.surfaces.insert(surface_id, surface);
     }
     
+    pub fn map_surface(&mut self, surface_id: ObjectId) {
+        debug!("DEBUG: Mapping surface {:?}", surface_id);
+        
+        if let Some(surface) = self.surfaces.get_mut(&surface_id) {
+            surface.map_surface();
+            debug!("DEBUG: Surface {:?} successfully mapped and ready for rendering", surface_id);
+        } else {
+            debug!("DEBUG: Surface {:?} not found for mapping", surface_id);
+        }
+    }
+    
     pub fn remove_surface(&mut self, surface_id: ObjectId) {
         debug!("DEBUG: Removing surface {:?}", surface_id);
         

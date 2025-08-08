@@ -4,6 +4,7 @@
 use std::sync::{Arc, Mutex};
 use tracing::debug;
 use wayland_server::protocol::wl_surface::WlSurface;
+use wayland_server::Resource;
 use smithay::backend::allocator::Fourcc;
 use smithay::{
     backend::{
@@ -83,6 +84,9 @@ pub struct AnvilState {
     pub seat: Seat<Self>,
     pub space: Space<Window>,
     pub popups: PopupManager,
+    pub surface_compositor: Option<SurfaceCompositor>,
+    pub wgpu_device: Option<wgpu::Device>,
+    pub wgpu_queue: Option<wgpu::Queue>,
 }
 
 impl BlitzSmithayRenderer {
@@ -199,6 +203,9 @@ impl BlitzSmithayRenderer {
             seat,
             space,
             popups,
+            surface_compositor: None,
+            wgpu_device: None,
+            wgpu_queue: None,
         };
         
         debug!("Smithay compositor instance created successfully");
@@ -226,10 +233,36 @@ impl CompositorHandler for AnvilState {
     
     fn new_surface(&mut self, surface: &wayland_server::protocol::wl_surface::WlSurface) {
         debug!("New surface created: {:?}", surface);
+        
+        let surface_id = ObjectId::new();
+        debug!("Generated surface ID: {:?} for Wayland surface", surface_id);
+        
+        if let Some(ref compositor) = self.surface_compositor {
+            if let Err(e) = compositor.add_surface(surface_id) {
+                debug!("Failed to add surface to compositor: {:?}", e);
+            } else {
+                debug!("Successfully added surface {:?} to compositor", surface_id);
+            }
+        } else {
+            debug!("No surface compositor available for surface creation");
+        }
     }
     
     fn commit(&mut self, surface: &wayland_server::protocol::wl_surface::WlSurface) {
         debug!("Surface committed: {:?}", surface);
+        
+        let surface_id = ObjectId::new();
+        debug!("Processing commit for surface ID: {:?}", surface_id);
+        
+        if let Some(ref compositor) = self.surface_compositor {
+            if let Err(e) = compositor.commit_surface(surface_id) {
+                debug!("Failed to commit surface: {:?}", e);
+            } else {
+                debug!("Successfully committed surface {:?}", surface_id);
+            }
+        } else {
+            debug!("No surface compositor available for surface commit");
+        }
     }
 }
 
@@ -325,6 +358,18 @@ impl XdgShellHandler for AnvilState {
     
     fn new_toplevel(&mut self, surface: smithay::wayland::shell::xdg::ToplevelSurface) {
         debug!("New toplevel surface: {:?}", surface);
+        
+        let surface_id = ObjectId::new();
+        debug!("Mapping toplevel surface with ID: {:?}", surface_id);
+        
+        if let Some(ref compositor) = self.surface_compositor {
+            if let Err(e) = compositor.map_surface(surface_id) {
+                debug!("Failed to map toplevel surface: {:?}", e);
+            } else {
+                debug!("Successfully mapped toplevel surface {:?}", surface_id);
+            }
+        }
+        
         let window = Window::new_wayland_window(surface);
         self.space.map_element(window, (0, 0), false);
     }

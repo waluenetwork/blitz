@@ -310,6 +310,15 @@ impl SurfaceCompositor {
         Ok(())
     }
     
+    pub fn map_surface(&self, surface_id: ObjectId) -> Result<(), BlitzSmithayError> {
+        let mut surface_manager = self.surface_manager
+            .lock()
+            .map_err(|_| BlitzSmithayError::ResourceManagerLocked)?;
+        surface_manager.map_surface(surface_id);
+        debug!("Mapped surface {:?} in compositor", surface_id);
+        Ok(())
+    }
+    
     pub fn get_surface_count(&self) -> Result<usize, BlitzSmithayError> {
         let surface_manager = self.surface_manager
             .lock()

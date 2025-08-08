@@ -1,6 +1,6 @@
 use anyrender_vello::wgpu_context::DeviceHandle;
 use anyrender_vello::{CustomPaintCtx, CustomPaintSource, TextureHandle};
-use blitz_smithay::{BlitzSmithayRenderer, BlitzTexture, SurfaceCompositor, ObjectId, DmaBufInfo};
+use blitz_smithay::{BlitzSmithayRenderer, BlitzTexture, SurfaceCompositor, ObjectId, DmaBufInfo, SmithayCompositor, AnvilState};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -193,7 +193,7 @@ impl CompositorHandler for SmithayApp {
                     _ => (wgpu::TextureFormat::Rgba8Unorm, "RGBA8888"),
                 };
                 
-                if let Some(ref surface_compositor) = self.surface_compositor {
+            if false { // Temporarily disabled until proper surface_compositor integration
                     let compositor = surface_compositor.lock().unwrap();
                     let device = compositor.wgpu_device();
                     let queue = compositor.wgpu_queue();
@@ -230,14 +230,14 @@ impl CompositorHandler for SmithayApp {
                     });
                     
                     queue.write_texture(
-                        wgpu::ImageCopyTexture {
+                        wgpu::TexelCopyTextureInfo {
                             texture: &wgpu_texture,
                             mip_level: 0,
                             origin: wgpu::Origin3d::ZERO,
                             aspect: wgpu::TextureAspect::All,
                         },
                         &padded_data,
-                        wgpu::ImageDataLayout {
+                        wgpu::TexelCopyBufferLayout {
                             offset: 0,
                             bytes_per_row: Some(aligned_bpr),
                             rows_per_image: Some(height),
@@ -253,7 +253,7 @@ impl CompositorHandler for SmithayApp {
                 }
             }) {
                 if let Ok((texture, width, height)) = buffer_data {
-                    if let Some(ref surface_compositor) = self.surface_compositor {
+            if false { // Temporarily disabled until proper surface_compositor integration
                         let mut compositor = surface_compositor.lock().unwrap();
                         if let Err(e) = compositor.add_surface(surface_id) {
                             debug!("Failed to add surface to compositor: {:?}", e);
@@ -283,7 +283,7 @@ impl CompositorHandler for SmithayApp {
                 debug!("Failed to extract buffer data");
             }
         } else {
-            if let Some(ref surface_compositor) = self.surface_compositor {
+            if false { // Temporarily disabled until proper surface_compositor integration
                 if let Err(e) = surface_compositor.lock().unwrap().add_surface(surface_id) {
                     debug!("Failed to add surface to compositor: {:?}", e);
                 } else {
@@ -700,6 +700,7 @@ impl SmithayPaintSource {
                 {
                     Ok(client) => {
                         wayland_state.clients.push(client);
+                        debug!("DEBUG: Client successfully inserted, total clients: {}", wayland_state.clients.len());
                         let _ = self.tx.send(SmithayMessage::ClientConnected);
                     }
                     Err(e) => {
@@ -710,6 +711,8 @@ impl SmithayPaintSource {
             
             if let Err(e) = wayland_state.display.dispatch_clients(&mut wayland_state.app_state) {
                 debug!("DEBUG: Error dispatching clients: {}", e);
+            } else if !wayland_state.clients.is_empty() {
+                debug!("DEBUG: Successfully dispatched events for {} clients", wayland_state.clients.len());
             }
             
             if let Err(e) = wayland_state.display.flush_clients() {
@@ -717,10 +720,6 @@ impl SmithayPaintSource {
             }
             
             let _time = wayland_state.start_time.elapsed().as_millis() as u32;
-            
-            if !wayland_state.clients.is_empty() {
-                let _ = self.tx.send(SmithayMessage::NewToplevelSurface);
-            }
         }
     }
 
@@ -743,7 +742,7 @@ impl SmithayPaintSource {
         if should_create_first_surface {
             debug!("DEBUG: Mock simulation - terminal client connection and surface creation");
             
-            self.create_mock_surface_with_texture(400, 300, [0.2, 0.8, 0.2, 1.0]);
+            self.create_mock_surface_with_texture_and_compositor(400, 300, [0.2, 0.8, 0.2, 1.0]);
             
             if let Some(ref mut wayland_state) = self.wayland_state {
                 wayland_state.client_count = 1;
@@ -757,7 +756,7 @@ impl SmithayPaintSource {
         if should_create_second_surface {
             debug!("DEBUG: Mock simulation - additional surface creation");
             
-            self.create_mock_surface_with_texture(300, 200, [0.8, 0.2, 0.2, 1.0]);
+            self.create_mock_surface_with_texture_and_compositor(300, 200, [0.8, 0.2, 0.2, 1.0]);
             
             if let Some(ref mut wayland_state) = self.wayland_state {
                 wayland_state.surface_count = 2;
@@ -826,14 +825,14 @@ impl SmithayPaintSource {
                 .collect();
             
             state.queue.write_texture(
-                wgpu::ImageCopyTexture {
+                wgpu::TexelCopyTextureInfo {
                     texture: &texture,
                     mip_level: 0,
                     origin: wgpu::Origin3d::ZERO,
                     aspect: wgpu::TextureAspect::All,
                 },
                 &color_data,
-                wgpu::ImageDataLayout {
+                wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(width * 4),
                     rows_per_image: Some(height),
@@ -843,6 +842,59 @@ impl SmithayPaintSource {
             
             let _blitz_texture = BlitzTexture::from_wgpu_texture(texture);
             debug!("Successfully created mock surface texture with BlitzTexture");
+        }
+    }
+    
+    fn create_mock_surface_with_texture_and_compositor(&mut self, width: u32, height: u32, color: [f32; 4]) {
+        if let SmithayRendererState::Active(ref state) = self.state {
+            debug!("Creating mock surface {}x{} with color {:?} and adding to compositor", width, height, color);
+            
+            let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("Mock Surface Texture"),
+                size: wgpu::Extent3d { 
+                    width, 
+                    height, 
+                    depth_or_array_layers: 1 
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+            
+            let color_data: Vec<u8> = (0..width * height)
+                .flat_map(|_| {
+                    [
+                        (color[0] * 255.0) as u8,
+                        (color[1] * 255.0) as u8,
+                        (color[2] * 255.0) as u8,
+                        (color[3] * 255.0) as u8,
+                    ]
+                })
+                .collect();
+            
+            state.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &color_data,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+            );
+            
+            let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
+            debug!("Successfully created mock surface texture with BlitzTexture");
+            
+            debug!("Mock surface texture created - surface compositor integration pending");
         }
     }
 }
