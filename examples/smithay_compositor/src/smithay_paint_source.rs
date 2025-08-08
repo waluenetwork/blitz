@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use wgpu;
 use wgpu::Instance;
+use std::collections::HashMap;
 use tracing::debug;
 
 #[derive(Clone)]
@@ -31,6 +32,8 @@ use smithay::{
         shm::{ShmHandler, ShmState},
     },
 };
+#[cfg(feature = "smithay-backend")]
+use blitz_smithay::coordinate_mapper::Rectangle as CmpRect;
 
 #[cfg(feature = "smithay-backend")]
 use wayland_server::{
@@ -108,6 +111,7 @@ struct SmithayApp {
     seat: Seat<Self>,
     surface_compositor: Option<Arc<Mutex<SurfaceCompositor>>>,
     sender: Sender<SmithayMessage>,
+    surface_ids: HashMap<u32, ObjectId>,
 }
 
 #[cfg(feature = "smithay-backend")]
@@ -129,6 +133,20 @@ impl ClientData for ClientState {
 
 #[cfg(feature = "smithay-backend")]
 impl BufferHandler for SmithayApp {
+#[cfg(feature = "smithay-backend")]
+impl SmithayApp {
+    fn get_or_create_surface_id(&mut self, surface: &WlSurface) -> ObjectId {
+        let key = surface.id().protocol_id();
+        if let Some(id) = self.surface_ids.get(&key) {
+            *id
+        } else {
+            let id = ObjectId::new();
+            self.surface_ids.insert(key, id);
+            id
+        }
+    }
+}
+
     fn buffer_destroyed(&mut self, _buffer: &wl_buffer::WlBuffer) {}
 }
 
@@ -146,7 +164,7 @@ impl CompositorHandler for SmithayApp {
     fn commit(&mut self, surface: &WlSurface) {
         debug!("Surface commit received for surface: {:?}", surface.id());
         
-        let surface_id = ObjectId::new();
+        let surface_id = self.get_or_create_surface_id(surface);
         
         let has_buffer = with_states(surface, |states| {
             states.cached_state.get::<SurfaceAttributes>()
@@ -241,7 +259,15 @@ impl CompositorHandler for SmithayApp {
                         } else if let Err(e) = compositor.set_surface_texture(surface_id, texture) {
                             debug!("Failed to set surface texture: {:?}", e);
                         } else {
-                            debug!("Successfully added surface {:?} with texture", surface_id);
+                            let full_rect = CmpRect::new(0, 0, spec.width as i32, spec.height as i32);
+                            if let Err(e) = compositor.track_damage(surface_id, &[full_rect]) {
+                                debug!("Failed to track damage for surface {:?}: {:?}", surface_id, e);
+                            }
+                            if let Err(e) = compositor.commit_surface(surface_id) {
+                                debug!("Failed to commit surface {:?}: {:?}", surface_id, e);
+                            } else {
+                                debug!("Successfully updated surface {:?} with texture and committed", surface_id);
+                            }
                         }
                     }
                 }
@@ -285,7 +311,8 @@ impl XdgShellHandler for SmithayApp {
         });
         surface.send_configure();
         
-        let surface_id = ObjectId::new();
+        let wl_surface = surface.wl_surface();
+        let surface_id = self.get_or_create_surface_id(&wl_surface);
         
         if let Some(ref surface_compositor) = self.surface_compositor {
             if let Err(e) = surface_compositor.lock().unwrap().add_surface(surface_id) {
@@ -567,6 +594,7 @@ impl SmithayPaintSource {
             seat,
             surface_compositor,
             sender: self.tx.clone(),
+            surface_ids: HashMap::new(),
         };
         
         let listener = match ListeningSocket::bind(&socket_name) {
