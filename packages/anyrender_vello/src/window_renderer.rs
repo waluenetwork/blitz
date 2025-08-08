@@ -9,6 +9,7 @@ use std::sync::{
     Arc,
     atomic::{self, AtomicU64},
 };
+use tracing::debug;
 use vello::{
     AaSupport, RenderParams, Renderer as VelloRenderer, RendererOptions, Scene as VelloScene,
 };
@@ -107,13 +108,25 @@ impl WindowRenderer for VelloWindowRenderer {
     }
 
     fn resume(&mut self, window_handle: Arc<dyn WindowHandle>, width: u32, height: u32) {
-        let surface = pollster::block_on(self.wgpu_context.create_surface(
+        tracing::debug!("VelloWindowRenderer::resume() starting with dimensions {}x{}", width, height);
+        
+        let surface_result = pollster::block_on(self.wgpu_context.create_surface(
             window_handle.clone(),
             width,
             height,
             PresentMode::AutoVsync,
-        ))
-        .expect("Error creating surface");
+        ));
+        
+        let surface = match surface_result {
+            Ok(surface) => {
+                tracing::debug!("Successfully created WGPU surface");
+                surface
+            }
+            Err(e) => {
+                tracing::debug!("Failed to create WGPU surface: {:?}", e);
+                panic!("Error creating surface: {:?}", e);
+            }
+        };
 
         self.window_handle = Some(window_handle);
 
@@ -125,15 +138,28 @@ impl WindowRenderer for VelloWindowRenderer {
             pipeline_cache: None,
         };
 
-        let renderer = VelloRenderer::new(&surface.device_handle.device, options).unwrap();
+        let renderer_result = VelloRenderer::new(&surface.device_handle.device, options);
+        let renderer = match renderer_result {
+            Ok(renderer) => {
+                tracing::debug!("Successfully created VelloRenderer");
+                renderer
+            }
+            Err(e) => {
+                tracing::debug!("Failed to create VelloRenderer: {:?}", e);
+                panic!("Error creating VelloRenderer: {:?}", e);
+            }
+        };
 
         self.render_state = RenderState::Active(ActiveRenderState { renderer, surface });
+        tracing::debug!("VelloWindowRenderer activated successfully, is_active: {}", self.is_active());
 
         let device_handle = self.render_state.current_device_handle().unwrap();
         let instance = &self.wgpu_context.instance;
         for source in self.custom_paint_sources.values_mut() {
             source.resume(instance, device_handle)
         }
+        
+        tracing::debug!("VelloWindowRenderer::resume() completed");
     }
 
     fn suspend(&mut self) {

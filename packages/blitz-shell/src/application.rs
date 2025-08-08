@@ -2,6 +2,8 @@ use crate::event::BlitzShellEvent;
 
 use anyrender::WindowRenderer;
 use std::collections::HashMap;
+#[cfg(feature = "tracing")]
+use tracing::debug;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
@@ -35,20 +37,44 @@ impl<Rend: WindowRenderer> BlitzApplication<Rend> {
 
 impl<Rend: WindowRenderer> ApplicationHandler<BlitzShellEvent> for BlitzApplication<Rend> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(feature = "tracing")]
+        debug!("BlitzApplication::resumed() called with {} existing windows and {} pending windows", 
+               self.windows.len(), self.pending_windows.len());
+        
         // Resume existing windows
-        for (_, view) in self.windows.iter_mut() {
+        for (window_id, view) in self.windows.iter_mut() {
+            #[cfg(feature = "tracing")]
+            debug!("Resuming existing window {:?}", window_id);
             view.resume();
         }
 
         // Initialise pending windows
-        for window_config in self.pending_windows.drain(..) {
+        for (index, window_config) in self.pending_windows.drain(..).enumerate() {
+            #[cfg(feature = "tracing")]
+            debug!("Initializing pending window {}", index);
             let mut view = View::init(window_config, event_loop, &self.proxy);
+            #[cfg(feature = "tracing")]
+            debug!("View initialized, calling resume...");
             view.resume();
-            if !view.renderer.is_active() {
+            
+            let is_active = view.renderer.is_active();
+            #[cfg(feature = "tracing")]
+            debug!("Renderer is_active: {}", is_active);
+            
+            if !is_active {
+                #[cfg(feature = "tracing")]
+                debug!("WARNING: Renderer is not active, window will not be added to application");
                 continue;
             }
-            self.windows.insert(view.window_id(), view);
+            
+            let window_id = view.window_id();
+            #[cfg(feature = "tracing")]
+            debug!("Adding window {:?} to application", window_id);
+            self.windows.insert(window_id, view);
         }
+        
+        #[cfg(feature = "tracing")]
+        debug!("BlitzApplication::resumed() completed with {} total windows", self.windows.len());
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {

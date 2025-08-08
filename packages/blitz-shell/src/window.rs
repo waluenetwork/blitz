@@ -14,6 +14,8 @@ use winit::keyboard::PhysicalKey;
 
 use std::sync::Arc;
 use std::task::Waker;
+#[cfg(feature = "tracing")]
+use tracing::debug;
 use winit::event::{ElementState, MouseButton};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Theme, WindowAttributes, WindowId};
@@ -30,7 +32,10 @@ pub struct WindowConfig<Rend: WindowRenderer> {
 
 impl<Rend: WindowRenderer> WindowConfig<Rend> {
     pub fn new(doc: Box<dyn Document>, renderer: Rend) -> Self {
-        Self::with_attributes(doc, renderer, Window::default_attributes())
+        let attributes = Window::default_attributes()
+            .with_visible(true)
+            .with_active(true);
+        Self::with_attributes(doc, renderer, attributes)
     }
 
     pub fn with_attributes(
@@ -75,7 +80,12 @@ impl<Rend: WindowRenderer> View<Rend> {
         event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<BlitzShellEvent>,
     ) -> Self {
+        #[cfg(feature = "tracing")]
+        debug!("Creating winit window with attributes: visible={:?}, active={:?}", 
+               config.attributes.visible, config.attributes.active);
         let winit_window = Arc::from(event_loop.create_window(config.attributes).unwrap());
+        #[cfg(feature = "tracing")]
+        debug!("Winit window created successfully, id: {:?}", winit_window.id());
 
         // TODO: make this conditional on text input focus
         winit_window.set_ime_allowed(true);
@@ -156,23 +166,43 @@ impl<Rend: WindowRenderer> View<Rend> {
 
 impl<Rend: WindowRenderer> View<Rend> {
     pub fn resume(&mut self) {
+        #[cfg(feature = "tracing")]
+        debug!("View::resume() starting");
+        
         // Resolve dom
         self.doc.resolve();
+        #[cfg(feature = "tracing")]
+        debug!("DOM resolved");
 
         // Resume renderer
         let (width, height) = self.doc.viewport().window_size;
         let scale = self.doc.viewport().scale_f64();
+        #[cfg(feature = "tracing")]
+        debug!("Resuming renderer with dimensions {}x{}, scale: {}", width, height, scale);
+        
         self.renderer.resume(self.window.clone(), width, height);
-        if !self.renderer.is_active() {
+        let is_active = self.renderer.is_active();
+        #[cfg(feature = "tracing")]
+        debug!("Renderer resume completed, is_active: {}", is_active);
+        
+        if !is_active {
+            #[cfg(feature = "tracing")]
+            debug!("ERROR: Renderer failed to resume - this will cause the window to not appear");
             panic!("Renderer failed to resume");
         };
 
         // Render
+        #[cfg(feature = "tracing")]
+        debug!("Performing initial render");
         self.renderer
             .render(|scene| paint_scene(scene, &self.doc, scale, width, height));
+        #[cfg(feature = "tracing")]
+        debug!("Initial render completed");
 
         // Set waker
         self.waker = Some(create_waker(&self.event_loop_proxy, self.window_id()));
+        #[cfg(feature = "tracing")]
+        debug!("View::resume() completed successfully");
     }
 
     pub fn suspend(&mut self) {
