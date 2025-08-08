@@ -21,22 +21,34 @@ impl VelloScenePainter<'_> {
             scale,
         } = custom_paint;
 
+        #[cfg(feature = "tracing")]
+        tracing::debug!("DEBUG: render_custom_source called for source_id: {}, dimensions: {}x{}, scale: {}", 
+                       source_id, width, height, scale);
 
         let source = self.custom_paint_sources.get_mut(&source_id);
         if source.is_none() {
+            #[cfg(feature = "tracing")]
+            tracing::debug!("DEBUG: ERROR: Custom paint source {} not found in registry", source_id);
             return None;
         }
         
         let source = source.unwrap();
+        
+        #[cfg(feature = "tracing")]
+        tracing::debug!("DEBUG: Found custom paint source {}, calling render method", source_id);
         
         let ctx = CustomPaintCtx::new(self.renderer);
         let texture_handle = source.render(ctx, width, height, scale);
         
         match texture_handle {
             Some(handle) => {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("DEBUG: Custom paint source {} returned texture handle", source_id);
                 Some(handle.dummy_image())
             }
             None => {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("DEBUG: Custom paint source {} returned None", source_id);
                 None
             }
         }

@@ -580,6 +580,8 @@ impl ElementCx<'_> {
     }
 
     fn draw_canvas(&self, scene: &mut impl PaintScene) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("DEBUG: draw_canvas called for element: {:?}", self.element.name.local);
         
         if let Some(custom_paint_source) = self.element.canvas_data() {
             let width = self.frame.content_box.width() as u32;
@@ -587,14 +589,20 @@ impl ElementCx<'_> {
             let x = self.frame.content_box.origin().x;
             let y = self.frame.content_box.origin().y;
 
-            
+            #[cfg(feature = "tracing")]
+            tracing::debug!("DEBUG: Canvas data found! source_id: {}, dimensions: {}x{}, position: ({}, {})", 
+                           custom_paint_source.custom_paint_source_id, width, height, x, y);
 
             if width == 0 || height == 0 {
-                
+                #[cfg(feature = "tracing")]
+                tracing::debug!("DEBUG: Canvas has zero dimensions, skipping render");
                 return;
             }
 
             let transform = self.transform.then_translate(Vec2 { x, y });
+
+            #[cfg(feature = "tracing")]
+            tracing::debug!("DEBUG: Calling scene.fill with CustomPaint for source_id: {}", custom_paint_source.custom_paint_source_id);
 
             scene.fill(
                 Fill::NonZero,
@@ -608,6 +616,9 @@ impl ElementCx<'_> {
                 None,
                 &Rect::from_origin_size((0.0, 0.0), (width as f64, height as f64)),
             );
+            
+            #[cfg(feature = "tracing")]
+            tracing::debug!("DEBUG: scene.fill completed for canvas");
             
         } else {
             if self.element.name.local.as_ref() == "canvas" {

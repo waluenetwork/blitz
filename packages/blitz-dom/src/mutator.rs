@@ -608,12 +608,20 @@ impl<'doc> DocumentMutator<'doc> {
     fn load_custom_paint_src(&mut self, target_id: usize) {
         let node = &mut self.doc.nodes[target_id];
         if let Some(element) = node.element_data() {
+            #[cfg(feature = "tracing")]
+            tracing::debug!("DEBUG: load_custom_paint_src called for element: {:?}", element.name.local);
         } else {
+            #[cfg(feature = "tracing")]
+            tracing::debug!("DEBUG: load_custom_paint_src called but no element data found");
             return;
         }
         
         if let Some(raw_src) = node.attr(local_name!("src")) {
+            #[cfg(feature = "tracing")]
+            tracing::debug!("DEBUG: Found src attribute: {}", raw_src);
             if let Ok(custom_paint_source_id) = raw_src.parse::<u64>() {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("DEBUG: Successfully parsed custom_paint_source_id: {}", custom_paint_source_id);
                 self.recompute_is_animating = true;
                 let canvas_data = SpecialElementData::Canvas(CanvasData {
                     custom_paint_source_id,
@@ -622,12 +630,20 @@ impl<'doc> DocumentMutator<'doc> {
                 
                 if let Some(element) = node.element_data() {
                     if element.canvas_data().is_some() {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("DEBUG: Canvas data successfully set for element");
                     } else {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("DEBUG: ERROR: Canvas data not found after setting");
                     }
                 }
             } else {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("DEBUG: Failed to parse src as u64: {}", raw_src);
             }
         } else {
+            #[cfg(feature = "tracing")]
+            tracing::debug!("DEBUG: No src attribute found on element");
         }
     }
 
