@@ -32,8 +32,9 @@ use smithay::{
         shm::{ShmHandler, ShmState},
     },
 };
+
 #[cfg(feature = "smithay-backend")]
-use blitz_smithay::coordinate_mapper::Rectangle as CmpRect;
+use smithay::utils::{Rectangle as SRect, Point as SPoint, Size as SSize};
 
 #[cfg(feature = "smithay-backend")]
 use wayland_server::{
@@ -259,10 +260,9 @@ impl CompositorHandler for SmithayApp {
                         } else if let Err(e) = compositor.set_surface_texture(surface_id, texture) {
                             debug!("Failed to set surface texture: {:?}", e);
                         } else {
-                            use blitz_smithay::coordinate_mapper::{Point, Size};
-                            let full_rect = CmpRect::from_loc_and_size(
-                                Point::new(0, 0),
-                                Size::new(width as i32, height as i32),
+                            let full_rect = SRect::from_loc_and_size(
+                                SPoint::from((0, 0)),
+                                SSize::from((width as i32, height as i32)),
                             );
                             if let Err(e) = compositor.track_surface_damage(surface_id, &[full_rect]) {
                                 debug!("Failed to track damage for surface {:?}: {:?}", surface_id, e);
@@ -803,7 +803,7 @@ impl SmithayPaintSource {
                 wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
             );
             
-            let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
+            let _blitz_texture = BlitzTexture::from_wgpu_texture(texture);
             debug!("Successfully created mock surface texture with BlitzTexture");
         }
     }
