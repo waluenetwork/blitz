@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use anyrender::WindowRenderer;
 
-#[cfg(feature = "gpu")]
+#[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
 pub use anyrender_vello::{
     CustomPaintSource, VelloWindowRenderer,
     wgpu::{Features, Limits},
@@ -19,7 +19,10 @@ use anyrender_vello_cpu::VelloCpuWindowRenderer;
 #[cfg(all(any(feature = "cpu-pixels", feature = "cpu-softbuffer"), not(feature = "gpu")))]
 type InnerRenderer = VelloCpuWindowRenderer;
 
-#[cfg(feature = "gpu")]
+#[cfg(not(any(feature = "gpu", feature = "cpu-pixels", feature = "cpu-softbuffer")))]
+type InnerRenderer = VelloWindowRenderer;
+
+#[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
 pub fn use_wgpu<T: CustomPaintSource>(create_source: impl FnOnce() -> T) -> u64 {
     use dioxus_core::prelude::{consume_context, use_hook_with_cleanup};
 
@@ -55,7 +58,7 @@ impl DxnWindowRenderer {
         Self::with_inner_renderer(vello_renderer)
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
     pub fn with_features_and_limits(features: Option<Features>, limits: Option<Limits>) -> Self {
         let vello_renderer = InnerRenderer::with_features_and_limits(features, limits);
         Self::with_inner_renderer(vello_renderer)
@@ -69,17 +72,17 @@ impl DxnWindowRenderer {
 }
 
 impl DxnWindowRenderer {
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
     pub fn register_custom_paint_source(&self, source: Box<dyn CustomPaintSource>) -> u64 {
         self.inner.borrow_mut().register_custom_paint_source(source)
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
     pub fn unregister_custom_paint_source(&self, id: u64) {
         self.inner.borrow_mut().unregister_custom_paint_source(id)
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
     pub fn get_custom_paint_source_mut(&self, id: u64) -> Option<std::cell::RefMut<'_, Box<dyn CustomPaintSource>>> {
         let mut inner_borrowed = self.inner.borrow_mut();
         if inner_borrowed.get_custom_paint_source_mut(id).is_some() {
@@ -118,7 +121,7 @@ impl WindowRenderer for DxnWindowRenderer {
         self.inner.borrow_mut().render(draw_fn)
     }
 
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
     fn forward_event_to_custom_paint_source(&mut self, id: u64, x: f32, y: f32, event_type: &str) -> bool {
         if let Some(mut paint_source) = self.get_custom_paint_source_mut(id) {
             paint_source.handle_event(x, y, event_type)
@@ -127,7 +130,7 @@ impl WindowRenderer for DxnWindowRenderer {
         }
     }
     
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
     fn forward_key_event_to_custom_paint_source(&mut self, id: u64, key_event: &dyn std::any::Any) -> bool {
         if let Some(mut paint_source) = self.get_custom_paint_source_mut(id) {
             paint_source.handle_key_event(key_event)
@@ -136,7 +139,7 @@ impl WindowRenderer for DxnWindowRenderer {
         }
     }
     
-    #[cfg(feature = "gpu")]
+    #[cfg(any(feature = "gpu", not(any(feature = "cpu-pixels", feature = "cpu-softbuffer"))))]
     fn forward_ime_event_to_custom_paint_source(&mut self, id: u64, ime_event: &dyn std::any::Any) -> bool {
         if let Some(mut paint_source) = self.get_custom_paint_source_mut(id) {
             paint_source.handle_ime_event(ime_event)
