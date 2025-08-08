@@ -10,8 +10,14 @@ pub use anyrender_vello::{
     wgpu::{Features, Limits},
 };
 
-#[cfg(feature = "cpu-base")]
+#[cfg(all(feature = "cpu-base", not(feature = "gpu")))]
 use anyrender_vello_cpu::VelloCpuWindowRenderer as InnerRenderer;
+
+#[cfg(not(any(feature = "gpu", feature = "cpu-base")))]
+pub use anyrender_vello::{
+    CustomPaintSource, VelloWindowRenderer as InnerRenderer,
+    wgpu::{Features, Limits},
+};
 
 #[cfg(feature = "gpu")]
 pub fn use_wgpu<T: CustomPaintSource>(create_source: impl FnOnce() -> T) -> u64 {
