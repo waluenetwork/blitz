@@ -32,7 +32,7 @@ fn app() -> Element {
                 p { "Connected Clients: " span { class: "status", "0" } }
                 p { "Active Surfaces: " span { class: "status", "0" } }
                 p { "Backend: " span { class: "status", "WGPU + Vello" } }
-                p { small { "Watch the canvas background change as mock surfaces are created!" } }
+                p { small { "Real Wayland surfaces will appear when clients connect!" } }
             }
             header {
                 h1 { "Smithay-Blitz Interactive Compositor" }

@@ -62,9 +62,6 @@ pub struct SmithayPaintSource {
 }
 
 pub enum SmithayMessage {
-    SurfaceCreated(u32, u32),
-    SurfaceDestroyed,
-    UpdateContent,
     ClientConnected,
     NewToplevelSurface,
     SurfaceCommitted,
@@ -447,12 +444,6 @@ impl CustomPaintSource for SmithayPaintSource {
         self.surface_compositor = Some(Arc::new(Mutex::new(surface_compositor)));
         debug!("DEBUG: Created SurfaceCompositor for SmithayPaintSource - compositor field initialized");
         
-        debug!("DEBUG: Creating mock surfaces to test compositor integration");
-        self.create_mock_surface_with_texture_and_compositor(400, 300, [0.2, 0.8, 0.3, 1.0]); // Green
-        self.create_mock_surface_with_texture_and_compositor(300, 200, [0.8, 0.2, 0.3, 1.0]); // Red
-        self.create_mock_surface_with_texture_and_compositor(200, 150, [0.3, 0.2, 0.8, 1.0]); // Blue
-        debug!("DEBUG: Mock surfaces created for testing");
-        
         self.setup_wayland_compositor();
     }
 
@@ -491,15 +482,6 @@ impl SmithayPaintSource {
     fn process_messages(&mut self) {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
-                SmithayMessage::SurfaceCreated(width, height) => {
-                    debug!("Processing surface creation {}x{}", width, height);
-                }
-                SmithayMessage::SurfaceDestroyed => {
-                    debug!("Processing surface destruction");
-                }
-                SmithayMessage::UpdateContent => {
-                    debug!("Processing content update");
-                }
                 SmithayMessage::ClientConnected => {
                     debug!("Processing real Wayland client connection");
                 }
@@ -683,8 +665,9 @@ impl SmithayPaintSource {
 
     #[cfg(not(feature = "smithay-backend"))]
     fn setup_wayland_compositor(&mut self) {
-        debug!("DEBUG: Setting up mock Wayland compositor (smithay-backend feature disabled)");
-        debug!("DEBUG: To enable real Smithay functionality, install system dependencies and build with --features smithay-backend");
+        debug!("DEBUG: Smithay backend not available - install libseat-dev and other system dependencies");
+        debug!("DEBUG: Run: sudo apt-get install libseat-dev libinput-dev libudev-dev");
+        debug!("DEBUG: Then rebuild with: cargo build --package smithay_compositor");
         
         let socket_name = format!("wayland-blitz-{}", std::process::id());
         
@@ -695,13 +678,7 @@ impl SmithayPaintSource {
             start_time: Instant::now(),
         });
         
-        unsafe {
-            std::env::set_var("WAYLAND_DISPLAY", &socket_name);
-        }
-        debug!("DEBUG: Mock Wayland server simulation on socket: {}", socket_name);
-        debug!("DEBUG: Set WAYLAND_DISPLAY environment variable");
-        
-        self.spawn_test_client();
+        debug!("DEBUG: Wayland compositor setup completed (no real surfaces without smithay-backend)");
     }
     
     #[cfg(feature = "smithay-backend")]
@@ -741,208 +718,21 @@ impl SmithayPaintSource {
 
     #[cfg(not(feature = "smithay-backend"))]
     fn dispatch_wayland_events(&mut self) {
+        debug!("DEBUG: Wayland backend not available - real surface creation requires smithay-backend feature");
+        
         let elapsed = self.start_time.elapsed().as_secs();
-        let mut should_create_first_surface = false;
-        let mut should_create_second_surface = false;
         
-        if let Some(ref wayland_state) = self.wayland_state {
+        if let Some(ref mut wayland_state) = self.wayland_state {
             if elapsed >= 2 && wayland_state.client_count == 0 {
-                should_create_first_surface = true;
-            }
-            
-            if elapsed >= 5 && wayland_state.surface_count == 1 {
-                should_create_second_surface = true;
-            }
-        }
-        
-        if should_create_first_surface {
-            debug!("DEBUG: Mock simulation - terminal client connection and surface creation");
-            
-            self.create_mock_surface_with_texture_and_compositor(400, 300, [0.2, 0.8, 0.2, 1.0]);
-            
-            if let Some(ref mut wayland_state) = self.wayland_state {
+                debug!("DEBUG: Simulating client connection (no surface creation without smithay-backend)");
                 wayland_state.client_count = 1;
-                wayland_state.surface_count = 1;
+                let _ = self.tx.send(SmithayMessage::ClientConnected);
             }
-            
-            let _ = self.tx.send(SmithayMessage::ClientConnected);
-            let _ = self.tx.send(SmithayMessage::NewToplevelSurface);
-        }
-        
-        if should_create_second_surface {
-            debug!("DEBUG: Mock simulation - additional surface creation");
-            
-            self.create_mock_surface_with_texture_and_compositor(300, 200, [0.8, 0.2, 0.2, 1.0]);
-            
-            if let Some(ref mut wayland_state) = self.wayland_state {
-                wayland_state.surface_count = 2;
-            }
-            
-            let _ = self.tx.send(SmithayMessage::NewToplevelSurface);
         }
     }
     
-    fn spawn_test_client(&self) {
-        debug!("DEBUG: Spawning test Wayland client (weston-terminal)");
-        
-        std::thread::spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(500));
-            
-            if let Err(e) = std::process::Command::new("weston-terminal").spawn() {
-                debug!("DEBUG: Failed to spawn weston-terminal: {}", e);
-                debug!("DEBUG: Trying alternative terminal clients...");
-                
-                if let Err(e2) = std::process::Command::new("gnome-terminal").spawn() {
-                    debug!("DEBUG: Failed to spawn gnome-terminal: {}", e2);
-                    
-                    if let Err(e3) = std::process::Command::new("xterm").spawn() {
-                        debug!("DEBUG: Failed to spawn xterm: {}", e3);
-                        debug!("DEBUG: No suitable terminal client found");
-                    } else {
-                        debug!("DEBUG: Successfully spawned xterm as test client");
-                    }
-                } else {
-                    debug!("DEBUG: Successfully spawned gnome-terminal as test client");
-                }
-            } else {
-                debug!("DEBUG: Successfully spawned weston-terminal as test client");
-            }
-        });
-    }
     
-    fn create_mock_surface_with_texture(&mut self, width: u32, height: u32, color: [f32; 4]) {
-        if let SmithayRendererState::Active(ref state) = self.state {
-            debug!("Creating mock surface {}x{} with color {:?}", width, height, color);
-            
-            let texture = state.device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("Mock Surface Texture"),
-                size: wgpu::Extent3d { 
-                    width, 
-                    height, 
-                    depth_or_array_layers: 1 
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            });
-            
-            let color_data: Vec<u8> = (0..width * height)
-                .flat_map(|_| {
-                    [
-                        (color[0] * 255.0) as u8,
-                        (color[1] * 255.0) as u8,
-                        (color[2] * 255.0) as u8,
-                        (color[3] * 255.0) as u8,
-                    ]
-                })
-                .collect();
-            
-            state.queue.write_texture(
-                wgpu::TexelCopyTextureInfo {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                &color_data,
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(width * 4),
-                    rows_per_image: Some(height),
-                },
-                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
-            );
-            
-            let _blitz_texture = BlitzTexture::from_wgpu_texture(texture);
-            debug!("Mock surface texture created - surface compositor integration pending");
-        }
-    }
     
-    fn create_mock_surface_with_texture_and_compositor(&mut self, width: u32, height: u32, color: [f32; 4]) {
-        if let SmithayRendererState::Active(ref state) = self.state {
-            debug!("Creating mock surface {}x{} with color {:?} and adding to compositor", width, height, color);
-            
-            let texture = state.device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("Mock Surface Texture"),
-                size: wgpu::Extent3d { 
-                    width, 
-                    height, 
-                    depth_or_array_layers: 1 
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            });
-            
-            let color_data: Vec<u8> = (0..width * height)
-                .flat_map(|_| {
-                    [
-                        (color[0] * 255.0) as u8,
-                        (color[1] * 255.0) as u8,
-                        (color[2] * 255.0) as u8,
-                        (color[3] * 255.0) as u8,
-                    ]
-                })
-                .collect();
-            
-            state.queue.write_texture(
-                wgpu::TexelCopyTextureInfo {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                &color_data,
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(width * 4),
-                    rows_per_image: Some(height),
-                },
-                wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
-            );
-            
-            let blitz_texture = BlitzTexture::from_wgpu_texture(texture);
-            debug!("Successfully created mock surface texture with BlitzTexture");
-            
-            debug!("Checking surface_compositor availability: {}", self.surface_compositor.is_some());
-            if let Some(ref surface_compositor) = self.surface_compositor {
-                let surface_id = ObjectId::new();
-                debug!("Adding mock surface {:?} to compositor", surface_id);
-                
-                if let Err(e) = surface_compositor.lock().unwrap().add_surface(surface_id) {
-                    debug!("Failed to add mock surface to compositor: {:?}", e);
-                } else {
-                    debug!("Successfully added mock surface to compositor");
-                    
-                    if let Err(e) = surface_compositor.lock().unwrap().set_surface_texture(surface_id, blitz_texture) {
-                        debug!("Failed to set mock surface texture: {:?}", e);
-                    } else {
-                        debug!("Successfully set mock surface texture");
-                        
-                        if let Err(e) = surface_compositor.lock().unwrap().map_surface(surface_id) {
-                            debug!("Failed to map mock surface: {:?}", e);
-                        } else {
-                            debug!("Successfully mapped mock surface");
-                            
-                            if let Err(e) = surface_compositor.lock().unwrap().commit_surface(surface_id) {
-                                debug!("Failed to commit mock surface: {:?}", e);
-                            } else {
-                                debug!("Successfully committed mock surface");
-                            }
-                        }
-                    }
-                }
-            } else {
-                debug!("No surface compositor available for mock surface");
-            }
-        }
-    }
 }
 
 impl ActiveSmithayRenderer {
