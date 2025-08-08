@@ -282,8 +282,9 @@ impl SurfaceCompositor {
         
         for (id, surface) in surface_manager.surfaces_mut() {
             if *id == surface_id {
+                let dims = texture.dimensions();
                 surface.set_texture(texture);
-                debug!("Set texture for surface {:?} and mapped it", surface_id);
+                debug!("Set texture for surface {:?} and mapped it ({}x{})", surface_id, dims.0, dims.1);
                 return Ok(());
             }
         }
