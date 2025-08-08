@@ -610,14 +610,27 @@ impl ElementCx<'_> {
             );
             
         } else {
-            
-            
             if self.element.name.local.as_ref() == "canvas" {
-                
                 if let Some(src) = self.element.attr(local_name!("src")) {
-                    
                     if let Ok(source_id) = src.parse::<u64>() {
+                        let width = self.frame.content_box.width() as u32;
+                        let height = self.frame.content_box.height() as u32;
+                        let x = self.frame.content_box.origin().x;
+                        let y = self.frame.content_box.origin().y;
                         
+                        let transform = Affine::translate((x, y));
+                        scene.fill(
+                            Fill::NonZero,
+                            transform,
+                            Paint::Custom(Arc::new(CustomPaint {
+                                source_id,
+                                width,
+                                height,
+                                scale: self.scale,
+                            })),
+                            None,
+                            &self.frame.content_box,
+                        );
                     }
                 }
             }
