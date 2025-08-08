@@ -447,6 +447,12 @@ impl CustomPaintSource for SmithayPaintSource {
         self.surface_compositor = Some(Arc::new(Mutex::new(surface_compositor)));
         debug!("DEBUG: Created SurfaceCompositor for SmithayPaintSource - compositor field initialized");
         
+        debug!("DEBUG: Creating mock surfaces to test compositor integration");
+        self.create_mock_surface_with_texture_and_compositor(400, 300, [0.2, 0.8, 0.3, 1.0]); // Green
+        self.create_mock_surface_with_texture_and_compositor(300, 200, [0.8, 0.2, 0.3, 1.0]); // Red
+        self.create_mock_surface_with_texture_and_compositor(200, 150, [0.3, 0.2, 0.8, 1.0]); // Blue
+        debug!("DEBUG: Mock surfaces created for testing");
+        
         self.setup_wayland_compositor();
     }
 
