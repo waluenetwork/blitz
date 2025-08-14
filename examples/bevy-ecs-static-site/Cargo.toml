@@ -1,10 +1,11 @@
 [package]
 name = "bevy-ecs-static-site"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+license.workspace = true
 
 [dependencies]
 blitz-bevy-ecs = { path = "../../packages/blitz-bevy-ecs" }
 bevy_ecs = { workspace = true }
 dioxus = { workspace = true }
-tokio = { version = "1.0", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
