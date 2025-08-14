@@ -37,10 +37,13 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 tokio = { version = "1.0", features = ["full"] }
+fastrand = "2.0"
 
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3.0"
+criterion = "0.5"
+proptest = "1.0"
 
 [package.metadata.docs.rs]
 all-features = true
