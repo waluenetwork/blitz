@@ -4,7 +4,7 @@ use bevy_ecs::query::QueryData;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Clone)]
 pub enum EcsContextError {
     #[error("Failed to lock ECS World: {0}")]
     LockError(String),

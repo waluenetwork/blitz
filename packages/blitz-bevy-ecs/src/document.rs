@@ -23,7 +23,7 @@ pub struct EcsDioxusDocument {
 
 impl EcsDioxusDocument {
     pub fn new(
-        mut vdom: VirtualDom, 
+        vdom: VirtualDom, 
         world: World, 
         net_provider: Option<Arc<dyn NetProvider<Resource>>>
     ) -> Self {
