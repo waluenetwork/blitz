@@ -12,6 +12,7 @@ members = [
   "packages/blitz-paint",
   "packages/blitz-shell",
   "packages/blitz",
+  "packages/blitz-bevy-ecs",
   "packages/mini-dxn",
   "packages/stylo_taffy",
   "apps/readme",
@@ -21,6 +22,7 @@ members = [
   "examples/todomvc",
   "examples/wgpu_texture",
   "examples/anyrender",
+  "examples/bevy-ecs-counter",
 ]
 exclude = ["sites"]
 resolver = "2"
@@ -50,6 +52,7 @@ blitz-net = { version = "0.1.0-rc.3", path = "./packages/blitz-net", default-fea
 blitz-paint = { version = "0.1.0-rc.3", path = "./packages/blitz-paint", default-features = false }
 blitz-shell = { version = "0.1.0-rc.3", path = "./packages/blitz-shell", default-features = false }
 blitz-traits = { version = "0.1.0-rc.3", path = "./packages/blitz-traits", default-features = false }
+blitz-bevy-ecs = { version = "0.1.0-rc.3", path = "./packages/blitz-bevy-ecs", default-features = false }
 stylo_taffy = { version = "0.1.0-rc.3", path = "./packages/stylo_taffy", default-features = false }
 mini-dxn = { path = "./packages/mini-dxn", default-features = false }
 
@@ -133,6 +136,10 @@ smol_str = "0.2"
 bitflags = "2.8.0"
 bytemuck = "1"
 fastrand = "2.3.0"
+
+# Bevy ECS dependencies
+bevy_ecs = "0.14"
+thiserror = "2.0"
 
 [profile.production]
 inherits = "release"

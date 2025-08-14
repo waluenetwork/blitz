@@ -1,0 +1,39 @@
+[package]
+name = "blitz-bevy-ecs"
+description = "Bevy ECS integration for Blitz + Dioxus applications"
+documentation = "https://docs.rs/blitz-bevy-ecs"
+version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["hot-reload"]
+hot-reload = []
+
+[dependencies]
+# Bevy ECS
+bevy_ecs = { workspace = true }
+
+# Blitz dependencies
+blitz-dom = { workspace = true }
+blitz-traits = { workspace = true }
+mini-dxn = { workspace = true, features = ["gpu"] }
+
+# Dioxus dependencies
+dioxus = { workspace = true }
+dioxus-core = { workspace = true }
+dioxus-hooks = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Other dependencies
+tracing = { workspace = true, optional = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

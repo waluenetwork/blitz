@@ -1,0 +1,20 @@
+[package]
+name = "bevy-ecs-counter"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[dependencies]
+# Blitz dependencies
+blitz = { workspace = true, features = ["net"] }
+blitz-bevy-ecs = { workspace = true }
+
+# Dioxus dependencies
+dioxus = { workspace = true }
+
+# Bevy ECS
+bevy_ecs = { workspace = true }
+
+# Other dependencies
+tokio = { workspace = true, features = ["macros"] }
+tracing-subscriber = "0.3"
